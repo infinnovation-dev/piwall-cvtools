@@ -375,11 +375,11 @@ class ColorMapper:
         w,h,c = self.img.shape
         outerEdge = np.array([(0,0), (0, h), (w,h), (w, 0)], dtype = np.int)
         M = cv2.moments(outerEdge)
-	cX = int(M["m10"] / M["m00"])
-	cY = int(M["m01"] / M["m00"])
-	cv2.circle(self.img, (cX, cY), 7, (255, 255, 255), -1)
-	cv2.putText(self.img, "center", (cX - 20, cY - 20),
-		    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        cv2.circle(self.img, (cX, cY), 7, (255, 255, 255), -1)
+        cv2.putText(self.img, "center", (cX - 20, cY - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         cv2.rectangle(self.img, (cX-30, cY-30), (cY+30, cY+30),(0,255,0), 2)
 
 
@@ -800,7 +800,7 @@ import getopt
 import sys
 
 def usage():
-    print '''
+    print('''
     piwall.py 
      --vssdemo|-v rotating    : iterate the VideoSquareSearch over rotating video, and output located data in piwall-search-mono.avi
      --vssdemo|-v album       : iterate the VideoSquareSearch over sequence of images, and output located data in album.avi
@@ -809,7 +809,7 @@ def usage():
                                : 2 => call gimpMarkup()
                                : 3 => call gaussianBlur(); colourMapping(); solidRedFilter(); [#cannyThresholding]
      --sfv3img|-i [image path]: run the SquareFinderV3 algorithm  : set the input image  < default mode 1>
-    '''
+    ''')
 
 def main():
     vssopt = None
