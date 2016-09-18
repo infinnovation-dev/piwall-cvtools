@@ -316,6 +316,11 @@ class Tile:
             br.translate(t)
         return (tl.coords(), br.coords())
 
+    def containsCoordinate(self, point):
+        if point[0] >= self.wx and point[0] <= (self.wx + self.W()) and point[1] >= self.wy and point[1] <= self.wy + self.H():
+            return True
+        return False
+
     def _bb_bezel(self):
         tl = Vector(0, 0)
         br = tl + Vector(self.W(), self.H())

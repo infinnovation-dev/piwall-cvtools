@@ -25,13 +25,19 @@ def click_and_crop(event, x, y, flags, param):
         refPt = [(x, y)]
     elif event == cv2.EVENT_LBUTTONUP:
         newTile = Tile(abs(refPt[0][0] - x), abs(refPt[0][1] - y))
-        selectedTile = newTile
         wall.add_tile(newTile, min(refPt[0][0], x), min(refPt[0][1], y))
         wall.draw(image)
+        tiles.append(newTile)
 
     elif event == cv2.EVENT_RBUTTONUP:
-        tile_popup()
-
+        found = False
+        iterator = 0
+        while not found and iterator < len(tiles):
+            if tiles[iterator].containsCoordinate((x,y)):
+                found = True
+                selectedTile = tiles[iterator]
+                tile_popup()
+            iterator = iterator+1
 
 def tile_popup():
     global tile_form, updatedTile
