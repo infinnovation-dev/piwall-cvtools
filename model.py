@@ -39,7 +39,7 @@ import time
 
 sys.path.append('/home/adam/pd/opencv/opencv-3.1.0/samples/python/')
 from video import create_capture, Album
-from common import clock
+from time import clock
 
 # Record the results of processing the video using vwriter
 from vwriter import VideoWriter
@@ -60,27 +60,30 @@ from tilemap import tile_map, DebugStream
 
 class Anchor():
     '''Allow shapes to be positioned w.r.t a key point.'''
+
     def __init__(self, label):
         self.label = label
+
 
 ###
 ### How to work with Points (x,y) and Vectors [(x,y), (a,b)] in openCV ?
 ###   or numpy, or some general 2D graphics libraries....
 
-def add2D(a,b):
-    return tuple(map(sum, zip(a,b)))
+def add2D(a, b):
+    return tuple(map(sum, zip(a, b)))
+
 
 class Vector:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-    
+
     def __add__(self, vector):
-        return Vector(self.x+vector.x, self.y + vector.y)
-    
+        return Vector(self.x + vector.x, self.y + vector.y)
+
     def translate(self, displacement):
         '''Syntactic sugar'''
-        self.x = self.x + displacement.x        
+        self.x = self.x + displacement.x
         self.y = self.y + displacement.y
 
     def coords(self):
@@ -89,6 +92,7 @@ class Vector:
 
     def __repr__(self):
         return '(%f,%f)' % (self.x, self.y)
+
 
 class Rectangle:
     # Convenient for cv2.rectangle
@@ -100,49 +104,59 @@ class Rectangle:
         self.tl = self.tl.translate(displacement)
         self.br = self.br.translate(displacement)
 
+
 class Color:
-    def __init__(self, b,g,r, desc = None):
-        self.bgr = (b,g,r)
+    def __init__(self, b, g, r, desc=None):
+        self.bgr = (b, g, r)
         self.desc = desc
 
-RED = Color(0,0,255)
-BLUE = Color(255,0,0)
-GREEN = Color(0,255,0)
+
+RED = Color(0, 0, 255)
+BLUE = Color(255, 0, 0)
+GREEN = Color(0, 255, 0)
+
 
 ###
 ### Working Model.
 ###
 
 class Resolution:
-    def __init__(self, x, y, name = ''):
+    def __init__(self, x, y, name=''):
         self.x = x
         self.y = y
         self.name = name
 
-HDres = Resolution(1920,1080, 'FullHD')
+
+HDres = Resolution(1920, 1080, 'FullHD')
 
 rectRE = re.compile(r'(\d+)x(\d+)(?:\+(\d+)\+(\d+))?$')
+
+
 def parse_rect(rect):
     m = rectRE.match(rect)
     if not m:
         raise ValueError, 'Invalid rectangle %r' % rect
     return [int(x) if x else 0 for x in m.groups()]
 
+
 class Crop:
     def __init__(self, expr):
         self.expr = expr
         self.values = parse_rect(self.expr)
         (self.w, self.h, self.x, self.y) = self.values
+
     def __repr__(self):
         return '%s : w=%d h=%d x=%d y=%d' % (self.expr, self.w, self.h, self.x, self.y)
 
+
 class Projection:
     '''A projection associates a video resolution with a wall to permit calculation of transformations between coordinate spaces.'''
+
     def __init__(self, resolution, wall):
         self.resolution = resolution
         self.wall = wall
         self.tileROIs = []
-    
+
     def run_transforms(self):
         pic_tuple = [self.resolution.x, self.resolution.y]
         wall_tuple = [self.wall.w, self.wall.h]
@@ -153,8 +167,8 @@ class Projection:
             print(crop, dest)
             self.tileROIs.append(Crop(crop))
             print(self.tileROIs[-1])
-    
-    def render(self, img, color=RED, thickness=3, fname = None):
+
+    def render(self, img, color=RED, thickness=3, fname=None):
         self.img = img
         for c in self.tileROIs:
             tl = (c.x, c.y)
@@ -168,9 +182,11 @@ class Projection:
             fh.close()
         vw.windowShow()
 
+
 class Wall:
     '''A wall is a container of tiles, which are display regions.  A tile may have a bezel, or non-display border around it.'''
-    def __init__(self, w, h, tiles = None, desc = ''):
+
+    def __init__(self, w, h, tiles=None, desc=''):
         self.w = w
         self.h = h
         self.desc = desc
@@ -180,48 +196,57 @@ class Wall:
         self.tilesByPixelOffset = {}
         self.img = None
         self.reset()
-        
+
     def resize(self, w):
         print('Wall resized to w %d' % w)
-        self.reset(w = w)
+        self.reset(w=w)
 
-    def reset(self, w = 0, h = 0, force = False):
-        self.img = np.zeros((self.h, self.w,3), np.uint8)
-    
+    def reset(self, w=0, h=0, force=False):
+        self.img = np.zeros((self.h, self.w, 3), np.uint8)
+
     def add_tile(self, tile, x, y):
         '''Add a tile at position x,y.'''
         tile.addToWall(self, x, y)
         self.tilesByOrder.append(tile)
         self.tilesByName[tile.name] = tile
         self.tilesById[tile.id] = tile
-        self.tilesByPixelOffset[(x,y)] = tile
+        self.tilesByPixelOffset[(x, y)] = tile
         print('Wall added : %s' % tile.name)
         print(tile)
 
     # TODO: Decorator to add .tiles as .tilesByOrder()
- 
+
     def add_bg(self, img):
         '''Add a background for the wall taken from a still image.   Image will need to be scaled to wall geometry.'''
         pass
-    
-    def render(self, w = 0, h = 0, bezelColor = RED, bezelThickness = 3, pixelColor = BLUE, pixelThickness = 3):
-        self.reset(force = True)
+
+    def render(self, w=0, h=0, bezelColor=RED, bezelThickness=3, pixelColor=BLUE, pixelThickness=3):
+        self.reset(force=True)
         for tile in self.tilesByOrder:
-            (tl,br) = tile.bb(bezel=True, wallCoords = True)
+            (tl, br) = tile.bb(bezel=True, wallCoords=True)
             cv2.rectangle(self.img, tl, br, bezelColor.bgr, bezelThickness)
-            (tl,br) = tile.bb(pixel=True, wallCoords = True)
+            (tl, br) = tile.bb(pixel=True, wallCoords=True)
             cv2.rectangle(self.img, tl, br, pixelColor.bgr, pixelThickness)
 
     def show(self):
         self.render()
         vw = ImageViewer(self.img)
         vw.windowShow()
-        
+
     def __repr__(self):
         s = []
         s.append('Wall with w = %d, h = %d, shape is %s' % (self.w, self.h, self.img.shape))
         return '\n'.join(s)
-            
+
+    def draw(self, image):
+        for tile in self.tilesByOrder:
+            cv2.putText(image, "ID #{}".format(tile.id), (tile.wx, tile.wy),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
+            cv2.rectangle(image, (tile.wx, tile.wy), (tile.wx + tile.W, tile.wy + tile.H),
+                          (0, 255, 0), 2)
+            cv2.imshow("image", image)
+
+
 class Tile:
     ''' 
     A tile is a display area of dimension
@@ -238,7 +263,8 @@ class Tile:
     It can be pinned to a wall by the top left corner (of full outer bounding box including bezel) at wall coordinates wx, wy.
     '''
     _ids = count(0)
-    def __init__(self, w, h, t = 0, b = 0, l = 0, r = 0, id = None, name = None, units = None):
+
+    def __init__(self, w, h, t=0, b=0, l=0, r=0, id=None, name=None, units=None):
         self.w = w
         self.h = h
         self.t = t
@@ -249,7 +275,7 @@ class Tile:
             self.id = self._ids.next()
         else:
             self.id = id
-        if not name :
+        if not name:
             self.name = "Tile %d" % self.id
         else:
             self.name = name
@@ -258,7 +284,7 @@ class Tile:
         self.orderInWall = -1
         self.wx = None
         self.wy = None
-            
+
     def addToWall(self, wall, x, y):
         self.wall = wall
         self.orderInWall = len(wall.tilesByOrder) + 1
@@ -270,31 +296,31 @@ class Tile:
 
     def H(self):
         return (self.t + self.h + self.b)
-        
-    def bb(self, bezel = False, pixel = True, wallCoords = False):
+
+    def bb(self, bezel=False, pixel=True, wallCoords=False):
         if bezel:
-            (tl,br) = self._bb_bezel()
+            (tl, br) = self._bb_bezel()
         else:
-            (tl,br) = self._bb_pixel()
+            (tl, br) = self._bb_pixel()
         if wallCoords:
             t = Vector(self.wx, self.wy)
             tl.translate(t)
             br.translate(t)
-        return (tl.coords(),br.coords())
+        return (tl.coords(), br.coords())
 
     def _bb_bezel(self):
         tl = Vector(0, 0)
         br = tl + Vector(self.W(), self.H())
-        return (tl,br)
+        return (tl, br)
 
     def _bb_pixel(self):
         tl = Vector(self.l, self.t)
         br = tl + Vector(self.w, self.h)
-        return (tl,br)
+        return (tl, br)
 
     def __repr__(self):
-        (bztl,bzbr) = self.bb(bezel=True)
-        (pxtl,pxbr) = self.bb(pixel=True)
+        (bztl, bzbr) = self.bb(bezel=True)
+        (pxtl, pxbr) = self.bb(pixel=True)
         if self.wall:
             wallInfo = 'Part of wall %s at location (%f,%f)' % (self.wall.desc, self.wx, self.wy)
         else:
@@ -302,12 +328,14 @@ class Tile:
         fmt = '''%s : bb [%s , %s] : pixels [%s , %s].  %s'''
         return fmt % (self.name, bztl, bzbr, pxtl, pxbr, wallInfo)
 
+
 ###
 ### Specific use of the model classes
 ###
 
 class RegularWall:
     '''Geometry handler for regular tiles, simple spacing.  Prototyping a general Wall Interface and features.'''
+
     def __init__(self, w, h, r, c, dx, dy, DX=0, DY=0):
         # Tiles of size w x h arranged in r rows, c columns : N of tiles = r * c
         self.w = w
@@ -328,24 +356,25 @@ class RegularWall:
         else:
             self.DY = DY
         # Overall wall geometry
-        m = Tile(w,h)
-        self.W = (r*m.W()) + ((r-1) * self.dx) + (2 * self.DX)
-        self.H = (c*m.H()) + ((c-1) * self.dy) + (2 * self.DY)
+        m = Tile(w, h)
+        self.W = (r * m.W()) + ((r - 1) * self.dx) + (2 * self.DX)
+        self.H = (c * m.H()) + ((c - 1) * self.dy) + (2 * self.DY)
         self.wall = Wall(self.W, self.H)
         # Offsets and Objects modelling the tiles, keyed by position (r,c)
         self.offsets = {}
         self.tile = {}
-        for row in range(0,r):
-            for col in range(0,c):
-                key = (row+1,col+1)
-                m = Tile(w,h)
+        for row in range(0, r):
+            for col in range(0, c):
+                key = (row + 1, col + 1)
+                m = Tile(w, h)
                 x = self.DX + (row * self.dx) + (row * m.W())
                 y = self.DY + (col * self.dy) + (col * m.H())
                 self.wall.add_tile(m, x, y)
                 self.tile[key] = m
         print(self.wall)
         self.wall.show()
-                
+
+
 def main():
     rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
     pgui = ProjectionGUI(HDres, rw.wall)
@@ -354,20 +383,23 @@ def main():
     p1 = Projection(HDres, rw.wall)
     p1.run_transforms()
     beach = cv2.imread('data/antigua_beaches-wallpaper-1920x1080.jpg')
-    p1.render(beach, fname = 'data/beach-2x2-hd.png')
+    p1.render(beach, fname='data/beach-2x2-hd.png')
     rw = RegularWall(1920, 1080, 4, 7, 100, 100, 150, 150)
     p1 = Projection(HDres, rw.wall)
     p1.run_transforms()
     beach = cv2.imread('data/antigua_beaches-wallpaper-1920x1080.jpg')
-    p1.render(beach, fname = 'data/beach-4x7-hd.png')
+    p1.render(beach, fname='data/beach-4x7-hd.png')
+
 
 class ProjectionGUI(object):
     window_name = "Infinnovation Projection GUI"
+
     def __init__(self, resolution, wall):
         cv2.namedWindow(self.window_name)
         cv2.imshow(self.window_name, wall.img)
         cv2.createTrackbar("wall width", self.window_name, wall.w, 1000, wall.resize)
         cv2.waitKey()
+
 
 if __name__ == '__main__':
     main()
