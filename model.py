@@ -242,7 +242,7 @@ class Wall:
         for tile in self.tilesByOrder:
             cv2.putText(image, "ID #{}".format(tile.id), (tile.wx, tile.wy),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
-            cv2.rectangle(image, (tile.wx, tile.wy), (tile.wx + tile.W, tile.wy + tile.H),
+            cv2.rectangle(image, (tile.wx, tile.wy), (tile.wx + tile.W(), tile.wy + tile.H()),
                           (0, 255, 0), 2)
             cv2.imshow("image", image)
 

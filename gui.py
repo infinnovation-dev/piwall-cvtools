@@ -19,24 +19,31 @@ refPt = []
 image = np.zeros((600, 600, 3), dtype = "uint8")
 clone = image.copy()
 
-wall = Wall(100, 100)
+wall = Wall(600, 600)
+testTile = Tile(50, 50)
+
+wall.add_tile(testTile, 0,0)
+wall.draw(image)
+
+
 tiles = []
 
 
 def click_and_crop(event, x, y, flags, param):
-    global refPt, image, tiles
+    global refPt, image, tiles, wall
     if event == cv2.EVENT_LBUTTONDOWN:
         refPt = [(x, y)]
     elif event == cv2.EVENT_LBUTTONUP:
         newTile = Tile(abs(refPt[0][0] - x), abs(refPt[0][1] - y))
         wall.add_tile(newTile, min(refPt[0][0], x), min(refPt[0][1], y))
 
-        top = Tkinter.Tk()
+        #top = Tkinter.Tk()
         # Code to add widgets will go here...
-        top.mainloop()
+        #top.mainloop()
 
     elif event == cv2.EVENT_RBUTTONUP:
         image = clone.copy()
+        wall.draw(image)
 
 
 cv2.namedWindow("image")
