@@ -40,7 +40,7 @@ import time
 
 sys.path.append('/home/adam/pd/opencv/opencv-3.1.0/samples/python/')
 from video import create_capture, Album
-from common import clock
+from time import clock
 
 # Record the results of processing the video using vwriter
 from vwriter import VideoWriter
