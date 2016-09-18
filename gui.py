@@ -1,4 +1,13 @@
-# import the necessary packages
+#!/usr/bin/env python
+
+'''
+Usage:
+    python gui.py
+
+    Click and drag on the canvas the size of the  tile (if the tile is smaller than 100 sqpixel it will not be drawn)
+    Right click on a tile will allow you to edit the attributes of it
+'''
+
 import argparse
 from model import *
 from Tkinter import *
@@ -21,10 +30,12 @@ def click_and_crop(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         refPt = [(x, y)]
     elif event == cv2.EVENT_LBUTTONUP:
-        newTile = Tile(abs(refPt[0][0] - x), abs(refPt[0][1] - y))
-        wall.add_tile(newTile, min(refPt[0][0], x), min(refPt[0][1], y))
-        wall.draw(image)
-        tiles.append(newTile)
+        #Restrict to create tiles that are at least 100 sqpixel big
+        if (abs(refPt[0][0] - x) * abs(refPt[0][1] - y) >= 100):
+            newTile = Tile(abs(refPt[0][0] - x), abs(refPt[0][1] - y))
+            wall.add_tile(newTile, min(refPt[0][0], x), min(refPt[0][1], y))
+            wall.draw(image)
+            tiles.append(newTile)
 
     elif event == cv2.EVENT_RBUTTONUP:
         found = False
@@ -59,13 +70,13 @@ def tile_popup():
 
     #Width
     width_entry = Entry(tile_form, bd =5)
-    width_entry.insert(0, selectedTile.W())
+    width_entry.insert(0, selectedTile.w)
     width_entry.grid(row=1, column =1)
 
     #Height
     height_entry = Entry(tile_form, bd =5)
     height_entry.grid(row=2, column =1)
-    height_entry.insert(0, selectedTile.H())
+    height_entry.insert(0, selectedTile.h)
 
     #xPos
     xPos_entry = Entry(tile_form, bd =5)
@@ -93,12 +104,12 @@ def tile_popup():
     bezelR_entry.insert(0, selectedTile.r)
 
     #BezelB
-    bezelT_entry = Entry(tile_form, bd =5)
-    bezelT_entry.grid(row=8, column =1)
-    bezelT_entry.insert(0, selectedTile.b)
+    bezelB_entry = Entry(tile_form, bd =5)
+    bezelB_entry.grid(row=8, column =1)
+    bezelB_entry.insert(0, selectedTile.b)
 
     tile_form.entries = [width_entry, height_entry, xPos_entry, yPos_entry, bezelL_entry,
-                         bezelT_entry, bezelR_entry, bezelT_entry]
+                         bezelT_entry, bezelR_entry, bezelB_entry]
 
     tile_form.mainloop()
 
