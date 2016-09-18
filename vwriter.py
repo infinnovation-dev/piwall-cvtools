@@ -4,10 +4,10 @@
 
 # import the necessary packages
 from __future__ import print_function
-from imutils.video import VideoStream
+#from imutils.video import VideoStream
 import numpy as np
 import argparse
-import imutils
+#import imutils
 import time
 import cv2
 import sys
