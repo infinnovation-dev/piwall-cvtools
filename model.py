@@ -264,7 +264,7 @@ class Tile:
     '''
     _ids = count(0)
 
-    def __init__(self, w, h, t=0, b=0, l=0, r=0, id=None, name=None, units=None):
+    def __init__(self, w, h, t=0, b=0, l=0, r=0, id=None, name=None):
         self.w = w
         self.h = h
         self.t = t
@@ -284,6 +284,14 @@ class Tile:
         self.orderInWall = -1
         self.wx = None
         self.wy = None
+
+    def copy(self):
+        newTile = Tile(self.w, self.h, self.t, self.b, self.l, self.r, self.id, self.name)
+        newTile.wall = self.wall
+        newTile.orderInWall = self.orderInWall
+        newTile.wx = self.wx
+        newTile.wy = self.wy
+        return newTile
 
     def addToWall(self, wall, x, y):
         self.wall = wall
