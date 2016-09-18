@@ -214,6 +214,15 @@ class Wall:
         print('Wall added : %s' % tile.name)
         print(tile)
 
+    def remove_tile(self, tile):
+        self.tilesByOrder.remove(tile)
+        print(self.tilesByOrder)
+        self.tilesByName = {key: value for key, value in self.tilesByName.items() if value != tile}
+        print(self.tilesByName)
+        self.tilesById = {key: value for key, value in self.tilesById.items() if value != tile}
+        self.tilesByPixelOffset = {key: value for key, value in self.tilesByPixelOffset.items() if value != tile}
+        print('Removed  the tile : %s ' % tile.name)
+
     # TODO: Decorator to add .tiles as .tilesByOrder()
 
     def add_bg(self, img):
@@ -239,6 +248,8 @@ class Wall:
         return '\n'.join(s)
 
     def draw(self, image):
+        if len(self.tilesByOrder) == 0:
+            cv2.imshow("image", image)
         for tile in self.tilesByOrder:
             cv2.putText(image, "ID #{}".format(tile.id), (tile.wx, tile.wy),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)

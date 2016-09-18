@@ -10,9 +10,6 @@ image = np.zeros((600, 600, 3), dtype = "uint8")
 clone = image.copy()
 
 wall = Wall(600, 600, None, "testWall")
-testTile = Tile(50, 50)
-wall.add_tile(testTile, 0,0)
-wall.draw(image)
 
 selectedTile = None
 updatedTile = None
@@ -56,7 +53,8 @@ def tile_popup():
     Label(tile_form, text="BezelR").grid(row=7, column=0)
     Label(tile_form, text="BezelB").grid(row=8, column=0)
     Button(tile_form, text="Save", command= saveClicked).grid(row=9, column=0)
-    Button(tile_form, text="Cancel", command= cancelClicked).grid(row=9, column=1)
+    Button(tile_form, text="Delete", command= deleteClicked).grid(row=9, column=1)
+    Button(tile_form, text="Cancel", command= cancelClicked).grid(row=9, column=2)
 
 
     #Width
@@ -99,16 +97,39 @@ def tile_popup():
     bezelT_entry.grid(row=8, column =1)
     bezelT_entry.insert(0, selectedTile.b)
 
+    tile_form.entries = [width_entry, height_entry, xPos_entry, yPos_entry, bezelL_entry,
+                         bezelT_entry, bezelR_entry, bezelT_entry]
+
     tile_form.mainloop()
 
 def saveClicked():
-    global tile_form
+    global tile_form, selectedTile, image, wall
     print("Values saved")
+    selectedTile.w = int(tile_form.entries[0].get())
+    selectedTile.h = int(tile_form.entries[1].get())
+    selectedTile.wx = int(tile_form.entries[2].get())
+    selectedTile.wy = int(tile_form.entries[3].get())
+    selectedTile.l = int(tile_form.entries[4].get())
+    selectedTile.t = int(tile_form.entries[5].get())
+    selectedTile.r = int(tile_form.entries[6].get())
+    selectedTile.b = int(tile_form.entries[7].get())
+    image = clone.copy()
+    wall.draw(image)
     tile_form.destroy()
+
 
 def cancelClicked():
     global tile_form
     print("Values not saved")
+    tile_form.destroy()
+
+def deleteClicked():
+    global tile_form, wall, selectedTile, image
+    print("Tile removed")
+    wall.remove_tile(selectedTile)
+    tiles.remove(selectedTile)
+    image = clone.copy()
+    wall.draw(image)
     tile_form.destroy()
 
 cv2.namedWindow("image")
