@@ -214,6 +214,15 @@ class Wall:
         print('Wall added : %s' % tile.name)
         print(tile)
 
+    def remove_tile(self, tile):
+        self.tilesByOrder.remove(tile)
+        print(self.tilesByOrder)
+        self.tilesByName = {key: value for key, value in self.tilesByName.items() if value != tile}
+        print(self.tilesByName)
+        self.tilesById = {key: value for key, value in self.tilesById.items() if value != tile}
+        self.tilesByPixelOffset = {key: value for key, value in self.tilesByPixelOffset.items() if value != tile}
+        print('Removed  the tile : %s ' % tile.name)
+
     # TODO: Decorator to add .tiles as .tilesByOrder()
 
     def add_bg(self, img):
@@ -239,11 +248,24 @@ class Wall:
         return '\n'.join(s)
 
     def draw(self, image):
+        if len(self.tilesByOrder) == 0:
+            cv2.imshow("image", image)
         for tile in self.tilesByOrder:
-            cv2.putText(image, "ID #{}".format(tile.id), (tile.wx, tile.wy),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
-            cv2.rectangle(image, (tile.wx, tile.wy), (tile.wx + tile.W(), tile.wy + tile.H()),
-                          (0, 255, 0), 2)
+            cv2.rectangle(image, (tile.wx, tile.wy), (tile.wx + tile.w, tile.wy + tile.h),
+                          (0, 255, 0), 1)
+            #Left bezel
+            cv2.rectangle(image, (tile.wx - tile.l, tile.wy), (tile.wx, tile.wy + tile.h),
+                          (40, 255, 40), -1)
+            #Top bezel
+            cv2.rectangle(image, (tile.wx - tile.l, tile.wy - tile.t), (tile.wx + tile.w, tile.wy),
+                          (40, 255, 40), -1)
+            #Right bezel
+            cv2.rectangle(image, (tile.wx + tile.w, tile.wy - tile.t), (tile.wx + tile.w + tile.r, tile.wy + tile.h),
+                          (40, 255, 40), -1)
+            #Bottom bezel
+            cv2.rectangle(image, (tile.wx - tile.l, tile.wy + tile.h), (tile.wx + tile.w + tile.r, tile.wy + tile.h + tile.b),
+                          (40, 255, 40), -1)
+
             cv2.imshow("image", image)
 
 
@@ -315,6 +337,11 @@ class Tile:
             tl.translate(t)
             br.translate(t)
         return (tl.coords(), br.coords())
+
+    def containsCoordinate(self, point):
+        if point[0] >= self.wx and point[0] <= (self.wx + self.W()) and point[1] >= self.wy and point[1] <= self.wy + self.H():
+            return True
+        return False
 
     def _bb_bezel(self):
         tl = Vector(0, 0)
