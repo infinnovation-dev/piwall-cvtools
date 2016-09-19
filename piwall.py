@@ -828,7 +828,7 @@ def main():
             sfv3mode = int(arg)
         elif opt in ('-i', '--sfv3img'):
             sfv3img = arg
-        elif option in ('-h', '--help'):
+        elif opt in ('-h', '--help'):
             usage()
             sys.exit(0)
         else:
