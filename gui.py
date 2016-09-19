@@ -9,7 +9,7 @@ Usage:
 
     Key bindings:
         g - generates the .piwall file with the name generatedpiwall
-        d - move/draw tile
+        d - togle between move/draw tiles
 
     19/09/2016 18:50 - 19:30 - implemented dragging the tiles
     19/09/2016 - 10 minutes - implemented saving the piwall file
@@ -22,6 +22,8 @@ from Tkinter import *
 from dotpiwall import DotPiwall
 import numpy as np
 import cv2
+
+MINIMUM_RESIZE_WIDTH = 10
 
 refPt = []
 image = np.zeros((600, 600, 3), dtype = "uint8")
@@ -43,7 +45,8 @@ offsets = (0,0)
 generated_piwall = "generatedpiwall"
 
 def mouse_callback(event, x, y, flags, param):
-    global refPt, image, tiles, wall, selected_tile, l_mouse_button_down, mouse_over_tile, clone, offsets
+    global refPt, image, tiles, wall, selected_tile, l_mouse_button_down, mouse_over_tile,\
+        clone, offsets
 
     if event == cv2.EVENT_LBUTTONDOWN:
         l_mouse_button_down = True
@@ -72,11 +75,25 @@ def mouse_callback(event, x, y, flags, param):
             tile_popup()
 
     elif event == cv2.EVENT_MOUSEMOVE:
-        if l_mouse_button_down and mouse_over_tile:
+        # TODO: Implement the t r b resize too
+        if l_mouse_button_down and mouse_over_tile and x >= selected_tile.wx and x <= selected_tile.wx + 5:
+            new_w = selected_tile.w + selected_tile.wx + selected_tile.l - x
+            # TODO: Fix when the bezel is resized to the left
+            print(
+            "selected_tile.w = {} selected_tile.wx = {} x = {} new_w = {}".format(selected_tile.w, selected_tile.wx, x,
+                                                                                  new_w))
+            if new_w >= MINIMUM_RESIZE_WIDTH:
+                selected_tile.w = new_w
+                selected_tile.wx = x - selected_tile.l
+                image = clone.copy()
+                wall.draw(image)
+                print("RESIZING")
+        elif l_mouse_button_down and mouse_over_tile and not draw_tile:
             selected_tile.wx = x - offsets[0]
             selected_tile.wy = y - offsets[1]
             image = clone.copy()
             wall.draw(image)
+        #TODO: Implement an else that will start drawing the tile while in the draw mode
 
 
 def find_hovered_tile(x,y):
@@ -107,47 +124,46 @@ def tile_popup():
     Label(tile_form, text="BezelT").grid(row=6, column=0)
     Label(tile_form, text="BezelR").grid(row=7, column=0)
     Label(tile_form, text="BezelB").grid(row=8, column=0)
-    Button(tile_form, text="Save", command= saveClicked).grid(row=9, column=0)
-    Button(tile_form, text="Delete", command= deleteClicked).grid(row=9, column=1)
-    Button(tile_form, text="Cancel", command= cancelClicked).grid(row=9, column=2)
+    Button(tile_form, text="Save", command= save_clicked).grid(row=9, column=0)
+    Button(tile_form, text="Delete", command= delete_clicked).grid(row=9, column=1)
+    Button(tile_form, text="Cancel", command= cancel_clicked).grid(row=9, column=2)
 
-
-    #Width
+    # Width
     width_entry = Entry(tile_form, bd =5)
     width_entry.insert(0, selected_tile.w)
     width_entry.grid(row=1, column =1)
 
-    #Height
+    # Height
     height_entry = Entry(tile_form, bd =5)
     height_entry.grid(row=2, column =1)
     height_entry.insert(0, selected_tile.h)
 
-    #xPos
+    # xPos
     xPos_entry = Entry(tile_form, bd =5)
     xPos_entry.grid(row=3, column =1)
     xPos_entry.insert(0, selected_tile.wx)
 
-    #yPos
+    # yPos
     yPos_entry = Entry(tile_form, bd =5)
     yPos_entry.grid(row=4, column =1)
     yPos_entry.insert(0, selected_tile.wy)
 
-    #BezelL
+    # BezelL
     bezelL_entry = Entry(tile_form, bd =5)
     bezelL_entry.grid(row=5, column =1)
     bezelL_entry.insert(0, selected_tile.l)
 
-    #BezelT
+    # BezelT
     bezelT_entry = Entry(tile_form, bd =5)
     bezelT_entry.grid(row=6, column =1)
     bezelT_entry.insert(0, selected_tile.t)
 
-    #BezelR
+    # BezelR
     bezelR_entry = Entry(tile_form, bd =5)
     bezelR_entry.grid(row=7, column =1)
     bezelR_entry.insert(0, selected_tile.r)
 
-    #BezelB
+    # BezelB
     bezelB_entry = Entry(tile_form, bd =5)
     bezelB_entry.grid(row=8, column =1)
     bezelB_entry.insert(0, selected_tile.b)
@@ -157,7 +173,8 @@ def tile_popup():
 
     tile_form.mainloop()
 
-def saveClicked():
+
+def save_clicked():
     global tile_form, selected_tile, image, wall
     print("Values saved")
     selected_tile.w = int(tile_form.entries[0].get())
@@ -173,12 +190,12 @@ def saveClicked():
     tile_form.destroy()
 
 
-def cancelClicked():
+def cancel_clicked():
     global tile_form
     print("Values not saved")
     tile_form.destroy()
 
-def deleteClicked():
+def delete_clicked():
     global tile_form, wall, selected_tile, image
     print("Tile removed")
     wall.remove_tile(selected_tile)
