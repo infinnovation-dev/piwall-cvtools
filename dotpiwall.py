@@ -45,7 +45,7 @@ class DotPiwall:
     def tile_definition(self, tile):
         s = []
         s.append('[%s_%s]' % (self.name, tile.id))
-        s.append('wall=%s' % self.name)
+        s.append('wall=%s_wall' % self.name)
         s.append('width=%d' % tile.W())
         s.append('height=%d' % tile.H())
         s.append('x=%d' % tile.wx)
