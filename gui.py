@@ -6,11 +6,18 @@ Usage:
 
     Click and drag on the canvas the size of the  tile (if the tile is smaller than 100 sqpixel it will not be drawn)
     Right click on a tile will allow you to edit the attributes of it
+
+    Key bindings:
+        g - generates the .piwall file with the name generatedpiwall
+
+    19/09/2016 - 10 minutes - implemented saving the piwall file
+    18/09/2016 - 3 hours
 '''
 
 import argparse
 from model import *
 from Tkinter import *
+from dotpiwall import DotPiwall
 import numpy as np
 import cv2
 
@@ -24,6 +31,8 @@ selectedTile = None
 updatedTile = None
 tile_form = None
 tiles = []
+
+generated_piwall = "generatedpiwall"
 
 def click_and_crop(event, x, y, flags, param):
     global refPt, image, tiles, wall, selectedTile
@@ -155,6 +164,14 @@ while True:
     # if the 'r' key is pressed, reset the cropping region
     if key == ord("r"):
         image = clone.copy()
+
+    elif key == ord("g"):
+        print("savig the .piwall file")
+        target = open(generated_piwall, 'w')
+        dotpiwall = DotPiwall("test", wall)
+        #print(str(dotpiwall))
+        target.write(str(dotpiwall))
+        target.close()
 
     # if the 'c' key is pressed, break from the loop
     elif key == ord("c"):
