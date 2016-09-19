@@ -247,6 +247,7 @@ class Wall:
         s.append('Wall with w = %d, h = %d, shape is %s' % (self.w, self.h, self.img.shape))
         return '\n'.join(s)
 
+    #TODO: check draw/show functions and create a Tile.show() function
     def draw(self, image):
         if len(self.tilesByOrder) == 0:
             cv2.imshow("image", image)
