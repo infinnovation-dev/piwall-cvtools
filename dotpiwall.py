@@ -7,14 +7,14 @@ Def: http://piwall.co.uk/information/16-piwall-configuration-file
 
 Ref: https://github.com/infinnovation/piwall-cvtools/issues/7
 
-TODO: parser
 TODO: better system to map pi-tile to tile-id
 TODO: system to sort tiles by position of center of ROI and scan order.
 
+20/09/16 00:30 - 01:40 Piwall parser implemented
 18/09/16 20:30 - 21:00 P1 : First draft, simple conversion of model.Wall to .piwall
 '''
 
-from model import Tile, RegularWall
+from model import Tile, RegularWall, Wall
 
 utSampleInput_A = '''
 '''
@@ -22,7 +22,7 @@ utSampleInput_A = '''
 utSampleOutput_A = '''
 '''
 
-utWall_A = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+#utWall_A = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
 
 class DotPiwall:
     def __init__(self, name, wall, x = 0, y = 0):
@@ -51,6 +51,62 @@ class DotPiwall:
         s.append('x=%d' % tile.wx)
         s.append('y=%d' % tile.wy)
         return '\n'.join(s)
+
+    @staticmethod
+    def parser(file_location):
+        definitions = {}
+        walls_dictionary = {}
+        last_definition = ''
+        # Read config
+        with open(file_location) as fp:
+            for line in fp:
+                trimmed_line = line.replace('\n', '').replace(' ', '')
+                if line[0] != '#' and len(trimmed_line) > 0:
+                    if line[0] == '[':
+                        last_definition = (trimmed_line.replace('[','').replace(']',''))
+                        definitions[last_definition] = {}
+                    else:
+                        attributes = trimmed_line.split('=')
+                        definitions[last_definition][attributes[0]] = attributes[1]
+        #print(definitions)
+
+        # Parse objects
+        for key, value in definitions.iteritems():
+            #print('value = key = {}'.format(value, key))
+
+            if 'wall' in value.keys():
+                #print('This is a tile : {}'.format(key))
+                newTile = Tile(int(value['width']), int(value['height']), 0, 0, 0, 0,
+                               key.split('_')[1], key.split('_')[0])
+                if value['wall'].split('_')[0] in walls_dictionary.keys():
+                    if 'tiles' not in walls_dictionary[value['wall'].split('_')[0]].keys():
+                        walls_dictionary[value['wall'].split('_')[0]]['tiles'] = []
+                    walls_dictionary[value['wall'].split('_')[0]]['tiles'].append(newTile)
+                else:
+                    walls_dictionary[value['wall'].split('_')[0]] = {}
+                    walls_dictionary[value['wall'].split('_')[0]]['tiles'] = []
+                    walls_dictionary[value['wall'].split('_')[0]]['tiles'].append(newTile)
+
+            elif 'width' in value.keys():
+                #print('This is a wall : {}'. format(key))
+                if key.split('_')[0] not in walls_dictionary.keys():
+                    walls_dictionary[key.split('_')[0]] = {}
+
+                newWall = Wall(int(value['width']), int(value['height']), int(value['x']), int(value['y']))
+                walls_dictionary[key.split('_')[0]]['definition'] = newWall
+
+            else:
+                print('This is the config : {}'.format(key))
+
+        result = []
+        for key, value in walls_dictionary.iteritems():
+            print(len(value['tiles']))
+            for tile in value['tiles']:
+                value['definition'].add_tile(tile, int(definitions['{}_{}'.format(tile.name,tile.id)]['x']),
+                                             int(definitions['{}_{}'.format(tile.name,tile.id)]['x']))
+            result.append(value['definition'])
+        return result
+
         
     def __repr__(self):
         s = []
@@ -64,13 +120,16 @@ class DotPiwall:
         return '\n'.join(s)
 
 def main():
-    print(utWall_A.wall)
-    tiles = []
-    for (tile_position, tile) in utWall_A.tile.iteritems():
-        print('%s\n%s' % (tile_position, tile))
-        tiles.append(tile)
-    dotutwa = DotPiwall('utwall_a', utWall_A.wall)
-    print(dotutwa)
+    #print(utWall_A.wall)
+    #tiles = []
+    #for (tile_position, tile) in utWall_A.tile.iteritems():
+        #print('%s\n%s' % (tile_position, tile))
+        #tiles.append(tile)
+    #dotutwa = DotPiwall('utwall_a', utWall_A.wall)
+    #print(dotutwa)
+    test = DotPiwall.parser("generatedpiwall")
+    print("config has {} wall configuration".format(len(test)))
+    test[0].show()
 
 if __name__ == '__main__':
     main()
