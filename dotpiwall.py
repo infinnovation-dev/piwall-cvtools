@@ -8,8 +8,8 @@ Def: http://piwall.co.uk/information/16-piwall-configuration-file
 Ref: https://github.com/infinnovation/piwall-cvtools/issues/7
 
 TODO: better system to map pi-tile to tile-id
-TODO: system to sort tiles by position of center of ROI and scan order.
 
+24/09/16 15:15 - 15:30 .piwall is generated from the top left to the bottom right
 20/09/16 00:30 - 01:40 Piwall parser implemented
 18/09/16 20:30 - 21:00 P1 : First draft, simple conversion of model.Wall to .piwall
 '''
@@ -22,7 +22,7 @@ utSampleInput_A = '''
 utSampleOutput_A = '''
 '''
 
-#utWall_A = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+utWall_A = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
 
 class DotPiwall:
     def __init__(self, name, wall, x = 0, y = 0):
@@ -111,25 +111,27 @@ class DotPiwall:
     def __repr__(self):
         s = []
         s.append('%s' % self.wall_definition())
-        for tile in self.wall.tilesByOrder:
+        tiles = sorted(self.wall.tilesByOrder, key=lambda tile:tile.wx) # sort on x (secondary)
+        sortedTiles = sorted(tiles, key=lambda tile: tile.wy)  # sort on y (primary)
+        for tile in sortedTiles:
             s.append('\n%s' % self.tile_definition(tile))
         s.append('\n# config')
         s.append('[%s]' % self.name)
-        for i, tile in enumerate(self.wall.tilesByOrder):
+        for i, tile in enumerate(sortedTiles):
             s.append('pi%d=%s_%s' % ( (i + 1) , self.name , tile.id))
         return '\n'.join(s)
 
 def main():
-    #print(utWall_A.wall)
-    #tiles = []
-    #for (tile_position, tile) in utWall_A.tile.iteritems():
-        #print('%s\n%s' % (tile_position, tile))
-        #tiles.append(tile)
-    #dotutwa = DotPiwall('utwall_a', utWall_A.wall)
-    #print(dotutwa)
-    test = DotPiwall.parser("generatedpiwall")
-    print("config has {} wall configuration".format(len(test)))
-    test[0].show()
+    print(utWall_A.wall)
+    tiles = []
+    for (tile_position, tile) in utWall_A.tile.iteritems():
+        print('%s\n%s' % (tile_position, tile))
+        tiles.append(tile)
+    dotutwa = DotPiwall('utwall_a', utWall_A.wall)
+    print(dotutwa)
+    #test = DotPiwall.parser("generatedpiwall")
+    #print("config has {} wall configuration".format(len(test)))
+    #test[0].show()
 
 if __name__ == '__main__':
     main()
