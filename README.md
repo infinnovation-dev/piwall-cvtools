@@ -14,3 +14,11 @@ To make shorter versions, the recipe is :
 
 ffmpeg -i rotating_wall.mp4 -ss 00:00:00.0 -c copy -t 00:00:02.0 rotating_wall_2s.mp4
 
+
+# TODO NEXT : add harris corner detection 
+http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_corner.html#sphx-glr-auto-examples-features-detection-plot-corner-py
+
+# TODO NEXT :
+  Step around the problem of integrating everything in one GUI with
+       multiprocessing ?
+

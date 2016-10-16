@@ -1,0 +1,7 @@
+#*font:		Helvetica 14 bold
+*font:		Helvetica 12 bold
+#*font:		Helvetica 10 bold
+*background: 	white
+*foreground:	black
+#*Label*background: red
+

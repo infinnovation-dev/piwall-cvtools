@@ -415,7 +415,6 @@ def main():
     rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
     pgui = ProjectionGUI(HDres, rw.wall)
     print("finished")
-    sys.exit(0)
     p1 = Projection(HDres, rw.wall)
     p1.run_transforms()
     beach = cv2.imread('data/antigua_beaches-wallpaper-1920x1080.jpg')
