@@ -247,6 +247,7 @@ class Wall:
         s.append('Wall with w = %d, h = %d, shape is %s' % (self.w, self.h, self.img.shape))
         return '\n'.join(s)
 
+    #TODO: check draw/show functions and create a Tile.show() function
     def draw(self, image):
         if len(self.tilesByOrder) == 0:
             cv2.imshow("image", image)
@@ -414,7 +415,6 @@ def main():
     rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
     pgui = ProjectionGUI(HDres, rw.wall)
     print("finished")
-    sys.exit(0)
     p1 = Projection(HDres, rw.wall)
     p1.run_transforms()
     beach = cv2.imread('data/antigua_beaches-wallpaper-1920x1080.jpg')
