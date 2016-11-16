@@ -16,18 +16,19 @@ Usage:
     18/09/2016 - 3 hours - initial interface
 '''
 
+import pdb
 import argparse
 from model import *
 from Tkinter import *
 from dotpiwall import DotPiwall
 import numpy as np
 import cv2
+from functools import partial
+import sys
 
 MINIMUM_RESIZE_WIDTH = 10
 
 refPt = []
-image = np.zeros((600, 600, 3), dtype = "uint8")
-clone = image.copy()
 
 wall = Wall(600, 600, None, "testWall")
 
@@ -173,7 +174,93 @@ def tile_popup():
 
     tile_form.mainloop()
 
+def help_popup():
+    global help_form
+    help_form = Tk()
+    help_form.wm_title('Help')
 
+    _row = 0
+    Label(help_form, text="Quit: 'q|c' ").grid(row=_row, column=0)
+    _row += 1
+    Label(help_form, text="Generate .piwall 'g'").grid(row=_row, column=0)
+    _row += 1
+    Label(help_form, text="Save wall 's'").grid(row=_row, column=0)
+    _row += 1
+    Label(help_form, text="Toggle draw/move 'd'").grid(row=_row, column=0)
+    _row += 1
+    Button(help_form, text="Quit (or press Escape or 'q')", command=help_form.destroy).grid(row=_row, column=0)
+    _row += 1
+
+    # Ref Tk-HOWTO bind function to raw widget inline http://stackoverflow.com/questions/7299955/tkinter-binding-a-function-with-arguments-to-a-widget
+
+    help_form.bind("q", partial(lambda event:help_form.destroy()))
+    help_form.bind("<Escape>", partial(lambda event:help_form.destroy()))
+    
+    help_form.mainloop()
+    
+def save_wall_popup():
+    global save_wall_form, updated_tile, wall_save_file, wall
+    save_wall_form = Tk()
+    wall_save_file = 'wall.pickle'
+    save_wall_form.wm_title('save wall')
+
+    Label(save_wall_form, text="Save Wall").grid(row=0, column=0)
+    Label(save_wall_form, text="Wall Save File").grid(row=1, column=0)
+    Button(save_wall_form, text="Save", command=save_wall).grid(row=9, column=0)
+    Button(save_wall_form, text="Cancel", command=save_wall_form.destroy).grid(row=9, column=1)
+
+    # Filename
+    filename_entry = Entry(save_wall_form, bd =5)
+    filename_entry.insert(0, wall_save_file)
+    filename_entry.grid(row=1, column =1)
+
+    save_wall_form.entries = [filename_entry]
+
+    save_wall_form.mainloop()
+
+def save_wall():
+    global save_wall_form, wall_save_file, wall
+    wall_save_file = save_wall_form.entries[0].get()
+    print('Save wall %s to %s' % (wall, wall_save_file))
+    with open(wall_save_file, 'w') as fh:
+        pickle.dump(wall, fh)
+    print('saved wall to %s' % wall_save_file)
+    save_wall_form.destroy()
+
+def load_wall_popup():
+    global load_wall_form, wall_save_file, wall
+    load_wall_form = Tk()
+    wall_save_file = 'wall.pickle'
+    load_wall_form.wm_title('load wall')
+
+    Label(load_wall_form, text="Load Wall").grid(row=0, column=0)
+    Label(load_wall_form, text="Wall Save File").grid(row=1, column=0)
+    Button(load_wall_form, text="Load", command=load_wall).grid(row=9, column=0)
+    Button(load_wall_form, text="Cancel", command=load_wall_form.destroy).grid(row=9, column=1)
+
+    # Filename
+    filename_entry = Entry(load_wall_form, bd =5)
+    filename_entry.insert(0, wall_save_file)
+    filename_entry.grid(row=1, column =1)
+
+    load_wall_form.entries = [filename_entry]
+
+    load_wall_form.mainloop()
+        
+def load_wall():
+    global load_wall_form, wall_save_file, wall
+    wall_save_file = load_wall_form.entries[0].get()
+    _load_wall(wall_save_file)
+    load_wall_form.destroy()
+
+def _load_wall(save_file):
+    global wall
+    print('Load wall from %s' % save_file)
+    with open(save_file, 'r') as fh:
+        wall = pickle.load(fh)
+    print('reloaded wall from file')
+    wall.draw(image)
+    
 def save_clicked():
     global tile_form, selected_tile, image, wall
     print("Values saved")
@@ -189,7 +276,6 @@ def save_clicked():
     wall.draw(image)
     tile_form.destroy()
 
-
 def cancel_clicked():
     global tile_form
     print("Values not saved")
@@ -204,40 +290,64 @@ def delete_clicked():
     wall.draw(image)
     tile_form.destroy()
 
-cv2.namedWindow("image")
-cv2.setMouseCallback("image", mouse_callback)
+def main(wall_file = None):
+    global image
+    image = np.zeros((600, 600, 3), dtype = "uint8")
+    clone = image.copy()
 
-# keep looping until the 'q' key is pressed
-while True:
-    # display the image and wait for a keypress
-    cv2.imshow("image", image)
-    key = cv2.waitKey(1) & 0xFF
+    cv2.namedWindow("image")
+    cv2.setMouseCallback("image", mouse_callback)
 
-    # if the 'r' key is pressed, reset the cropping region
-    if key == ord("r"):
-        image = clone.copy()
+    if wall_file:
+        _load_wall(wall_file)
 
-    elif key == ord("g"):
-        print("savig the .piwall file")
-        target = open(generated_piwall, 'w')
-        dotpiwall = DotPiwall("test", wall)
-        #print(str(dotpiwall))
-        target.write(str(dotpiwall))
-        target.close()
+    # keep looping until the 'q' key is pressed
+    while True:
+        # display the image and wait for a keypress
+        cv2.imshow("image", image)
+        key = cv2.waitKey(1) & 0xFF
 
-    elif key == ord("d"):
-        draw_tile = not draw_tile
+        # if the 'r' key is pressed, reset the cropping region
+        if key == ord("r"):
+            image = clone.copy()
 
-    # if the 'c' key is pressed, break from the loop
-    elif key == ord("c"):
-        break
+        elif key == ord("g"):
+            print("savig the .piwall file")
+            target = open(generated_piwall, 'w')
+            dotpiwall = DotPiwall("test", wall)
+            #print(str(dotpiwall))
+            target.write(str(dotpiwall))
+            target.close()
+            
+        elif key == ord("d"):
+            draw_tile = not draw_tile
 
-# if there are two reference points, then crop the region of interest
-# from teh image and display it
-if len(refPt) == 2:
-    roi = clone[refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]
-    cv2.imshow("ROI", roi)
-    cv2.waitKey(0)
+        elif key == ord("h"):
+            help_popup()
 
-# close all open windows
-cv2.destroyAllWindows()
+        elif key == ord("s"):
+            save_wall_popup()
+
+        elif key == ord("l"):
+            load_wall_popup()
+
+            # if the 'c' key is pressed, break from the loop
+        elif key == ord("c") or key == ord("q"):
+            break
+
+        # if there are two reference points, then crop the region of interest
+        # from teh image and display it
+    if len(refPt) == 2:
+        roi = clone[refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]
+        cv2.imshow("ROI", roi)
+        cv2.waitKey(0)
+
+    # close all open windows
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        wall_file = sys.argv[1]
+    else:
+        wall_file = None
+    main(wall_file)

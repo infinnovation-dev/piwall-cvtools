@@ -10,8 +10,8 @@ import argparse
 import imutils
 import time
 import cv2
+import pdb
 import sys
-
 
 class VideoWriterRGB:
     def __init__(self, output='video.avi', fps=20, codec=["M", "J", "P", "G"]):
@@ -83,18 +83,7 @@ class VideoWriter:
     def finalise(self):
         self.writer.release()
 
-
-if __name__ == '__main__':
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-o", "--output", required=True,
-                    help="path to output video file")
-    ap.add_argument("-p", "--picamera", type=int, default=-1,
-                    help="whether or not the Raspberry Pi camera should be used")
-    ap.add_argument("-f", "--fps", type=int, default=20,
-                    help="FPS of output video")
-    ap.add_argument("-c", "--codec", type=str, default="MJPG",
-                    help="codec of output video")
-    args = vars(ap.parse_args())
+def rotating_example():
     img = cv2.imread('./data/hi.jpg')
     vwriter = VideoWriterRGB('hi-video.avi')
     frames = 0
@@ -110,3 +99,54 @@ if __name__ == '__main__':
         frames += 1
     vwriter.finalise()
     print("Created movie with %d frames" % frames)
+
+def red_and_black():
+    red = cv2.imread('./data/redHDSolidBlock.jpg')
+    black = cv2.imread('./data/blackHDSolidBlock.jpg')
+    vwriter = VideoWriter('red_black_0.5Hz.avi')
+    frames = 0
+    for t in range(30):
+        for f in range(20):
+            vwriter.addFrame(black)
+            frames+=1
+        for f in range(20):
+            vwriter.addFrame(red)
+            frames+=1
+    vwriter.finalise()
+    print("Created movie with %d frames" % frames)
+
+def webcam_capture_video(output = 'webcam.avi', duration = 5):
+    w = VideoWriter(output = output)
+    cap = cv2.VideoCapture(0)
+    t = t0 = time.time()
+    t1 = t + duration
+    md = []
+    while (t < t1):
+        _,f = cap.read()
+        w.addFrame(f)
+        md.append(t)
+        t = time.time()
+    w.finalise()
+    print("Captured %d frames to %s in %f\n" % (len(md), output, (t - t0)))
+        
+if __name__ == '__main__':
+    red_and_black()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-o", "--output", required=True,
+                    help="path to output video file")
+    ap.add_argument("-p", "--picamera", type=int, default=-1,
+                    help="whether or not the Raspberry Pi camera should be used")
+    ap.add_argument("-w", "--webcam", type=int, default=-1,
+                    help="whether or not the Raspberry Pi camera should be used")
+    ap.add_argument("-d", "--duration", type=int, default=5,
+                    help="duration in seconds for the video capture")
+    ap.add_argument("-f", "--fps", type=int, default=20,
+                    help="FPS of output video")
+    ap.add_argument("-c", "--codec", type=str, default="MJPG",
+                    help="codec of output video")
+    args = vars(ap.parse_args())
+    #pdb.set_trace()
+    if args['webcam'] == 1:
+        webcam_capture_video(output = args['output'], duration = args['duration'])
+    else:
+        rotating_example()

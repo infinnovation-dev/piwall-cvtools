@@ -22,6 +22,7 @@ Also demonstrates the use of openCV drawing and transformation functions.
 from itertools import count
 import glob
 import os
+import pickle
 import re
 import sys
 
@@ -204,6 +205,30 @@ class Wall:
     def reset(self, w=0, h=0, force=False):
         self.img = np.zeros((self.h, self.w, 3), np.uint8)
 
+    # Make picklable/unpicklable
+    # Consider whether to implement __getstate__ and __setstate__
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['img']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+    def save(self, filename, overwrite=False):
+        if not os.path.exists(filename) or  overwrite:
+            with open(filename, 'w') as fh:
+                pickle.dump(self, fh)
+
+    def restore(self, filename):
+        if not os.path.exists(filename):
+            pass
+        else:
+            with open(filename, 'r') as fh:
+                tmp = pickle.load(fh)
+                self.__dict__.update(tmp.__dict__)
+
     def add_tile(self, tile, x, y):
         '''Add a tile at position x,y.'''
         tile.addToWall(self, x, y)
@@ -316,6 +341,13 @@ class Tile:
         newTile.wy = self.wy
         return newTile
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     def addToWall(self, wall, x, y):
         self.wall = wall
         self.orderInWall = len(wall.tilesByOrder) + 1
@@ -407,12 +439,32 @@ class RegularWall:
                 y = self.DY + (col * self.dy) + (col * m.H())
                 self.wall.add_tile(m, x, y)
                 self.tile[key] = m
-        print(self.wall)
+
+    def show():
         self.wall.show()
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+        
 
 def main():
+    pdb.set_trace()
     rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+    with open('data/rw.pickle', 'w') as fh:
+        pickle.dump(rw, fh)
+    with open('data/rw.pickle', 'r') as fh:
+        rw2 = pickle.load(fh)
+    print(rw2)
+    rw.wall.save('data/regular_wall.pickle')
+    w = Wall(0,0)
+    w.restore('data/regular_wall.pickle')
+    print(w)
+    sys.exit(0)
     pgui = ProjectionGUI(HDres, rw.wall)
     print("finished")
     p1 = Projection(HDres, rw.wall)
@@ -423,7 +475,7 @@ def main():
     p1 = Projection(HDres, rw.wall)
     p1.run_transforms()
     beach = cv2.imread('data/antigua_beaches-wallpaper-1920x1080.jpg')
-    p1.render(beach, fname='data/beach-4x7-hd.png')
+    p1.render(beach, fname='data/beach-4x7-hd.png')    
 
 
 class ProjectionGUI(object):

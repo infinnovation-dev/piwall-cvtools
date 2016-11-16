@@ -22,7 +22,8 @@ utSampleInput_A = '''
 utSampleOutput_A = '''
 '''
 
-utWall_A = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+# Uncommenting the following means everyone importing this module gets an unwanted window....
+#utWall_A = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
 
 class DotPiwall:
     def __init__(self, name, wall, x = 0, y = 0):

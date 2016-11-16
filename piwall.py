@@ -137,7 +137,7 @@ class Square(object):
 
     def __repr__(self):
         s = []
-        s.append('Square %04d : area = %d : max_cos = %f' % (self.ID, self.area, self.max_cos))
+        s.append('Square %04d : area = %d : max_cos = %f : shape = %s : contour = %s' % (self.ID, self.area, self.max_cos, self.contour.shape, self.contour))
         return '\n'.join(s)
 
 def find_squares_V2(img, cos_limit = 0.1, area_min = 1000, area_max = 1E9, show = False, info = False, destroy = True, thumbnailDir = None):
@@ -213,7 +213,7 @@ class SquareFinderV3:
 
     def __init__(self, img, cos_limit = 0.1, area_min = 1000, area_max = 1E9, show = False, info = False, destroy = True, thumbnailDir = None, imgPath = None):
         self.img = img
-        self.cos_limit = 0.1
+        self.cos_limit = cos_limit
         self.area_min = area_min
         self.area_max = area_max
         self.show = show
@@ -248,7 +248,15 @@ class SquareFinderV3:
             self.solidRedFilter()
             #self.cannyThresholding()
             self.modeDesc = 'Run gaussianBlur(), colourMapping(), solidRedFilter(), #cannyThresholding'
-        # Apply Heuristics to filter out false
+        elif mode == 4:
+            self.modeDesc = 'Run gaussianBlur(), then cannyThresholding with RETR_EXTERNAL contour removal mode'
+            self.gaussianBlur()
+            self.cannyThresholding(cv2.RETR_EXTERNAL)
+        elif mode == 5:
+            self.modeDesc = 'Run gaussianBlur(), then cannyThresholding with RETR_TREE contour removal mode'
+            self.gaussianBlur()
+            self.cannyThresholding(cv2.RETR_TREE)
+# Apply Heuristics to filter out false
         self.squares = filterContoursRemove(self.img, self.squares)
         return self.squares
     
@@ -307,7 +315,11 @@ class SquareFinderV3:
         title = self.tgen.next('solidRedFilter')
         if self.show: ImageViewer(self.img).show(window=title, destroy = self.destroy, info = self.info, thumbnailfn = title)
         
-    def cannyThresholding(self):
+    def cannyThresholding(self, contour_retrieval_mode = cv2.RETR_LIST):
+        '''
+        contour_retrieval_mode is passed through as second argument to cv2.findContours
+        '''
+    
         # Attempt to match edges found in blue, green or red channels : collect all
         channel = 0
         for gray in cv2.split(self.img):
@@ -315,6 +327,7 @@ class SquareFinderV3:
             print('channel %d ' % channel)
             title = self.tgen.next('channel-%d' % channel)
             if self.show: ImageViewer(gray).show(window = title, destroy = self.destroy, info = self.info, thumbnailfn = title)
+            found = {}
             for thrs in xrange(0, 255, 26):
                 print('Using threshold %d' % thrs)
                 if thrs == 0:
@@ -329,10 +342,23 @@ class SquareFinderV3:
                     retval, bin = cv2.threshold(gray, thrs, 255, cv2.THRESH_BINARY)
                     title = self.tgen.next('channel-%d-threshold-%d' % (channel, thrs))
                     if self.show: ImageViewer(bin).show(window='Next threshold (n to continue)', destroy = self.destroy, info = self.info, thumbnailfn = title)
-                bin, contours, hierarchy = cv2.findContours(bin, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+                bin, contours, hierarchy = cv2.findContours(bin, contour_retrieval_mode, cv2.CHAIN_APPROX_SIMPLE)
                 title = self.tgen.next('channel-%d-threshold-%d-contours' % (channel, thrs))
                 if self.show: ImageViewer(bin).show(window = title, destroy = self.destroy, info = self.info, thumbnailfn = title)
-                for cnt in contours:
+                if contour_retrieval_mode == cv2.RETR_LIST or contour_retrieval_mode == cv2.RETR_EXTERNAL:
+                    filteredContours = contours
+                else:
+                    filteredContours = []
+                    h = hierarchy[0]
+                    for component in zip(contours, h):
+                        currentContour = component[0]
+                        currentHierarchy = component[1]
+                        if currentHierarchy[3] < 0:
+                            # Found the outermost parent component
+                            filteredContours.append(currentContour)
+                    print('Contours filtered.   Input %d  Output %d' % (len(contours), len(filteredContours)))
+                    time.sleep(5)
+                for cnt in filteredContours:
                     cnt_len = cv2.arcLength(cnt, True)
                     cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
                     cnt_len = len(cnt)
@@ -340,7 +366,6 @@ class SquareFinderV3:
                     cnt_isConvex = cv2.isContourConvex(cnt)
                     if cnt_len == 4 and (cnt_area > self.area_min and cnt_area < self.area_max)  and cnt_isConvex:
                         cnt = cnt.reshape(-1, 2)
-                        pdb.set_trace()
                         max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
                         if max_cos < self.cos_limit :
                             sq = Square(cnt, cnt_area, cnt_isConvex, max_cos)
@@ -348,6 +373,8 @@ class SquareFinderV3:
                         else:
                             #print('dropped a square with max_cos %f' % max_cos)
                             pass
+                found[thrs] = len(self.squares)
+                print('Found %d quadrilaterals with threshold %d' % (len(self.squares), thrs))
 
     def __repr__(self):
         s = []
@@ -359,8 +386,138 @@ class SquareFinderV3:
         s.append('area min         : %d <%d side>' % (self.area_min, int(math.sqrt(self.area_min))))
         s.append('area max         : %d <%d side>' % (self.area_max, int(math.sqrt(self.area_max))))
         s.append('squares found    : %d' % len(self.squares))
+        for (i  ,sq) in enumerate(self.squares):
+            s.append('\tsquare[%d]     : area %d max_cos %f' % (i, sq.area, sq.max_cos))
         return '\n'.join(s)
 
+    
+def contour_to_monitor_coords(screenCnt):
+    '''Apply pyimagesearch algorithm to identify tl,tr,br,bl points from a contour'''
+    # now that we have our screen contour, we need to determine
+    # the top-left, top-right, bottom-right, and bottom-left
+    # points so that we can later warp the image -- we'll start
+    # by reshaping our contour to be our finals and initializing
+    # our output rectangle in top-left, top-right, bottom-right,
+    # and bottom-left order
+    pts = screenCnt.reshape(4, 2)
+    rect = np.zeros((4, 2), dtype = "float32")
+    
+    # the top-left point has the smallest sum whereas the
+    # bottom-right has the largest sum
+    s = pts.sum(axis = 1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+    
+    # compute the difference between the points -- the top-right
+    # will have the minumum difference and the bottom-left will
+    # have the maximum difference
+    diff = np.diff(pts, axis = 1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+
+    return rect
+
+def compute_warp(rect):    
+    
+    # now that we have our rectangle of points, let's compute
+    # the width of our new image
+    (tl, tr, br, bl) = rect
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    
+    # ...and now for the height of our new image
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    
+    # take the maximum of the width and height values to reach
+    # our final dimensions
+    maxWidth = max(int(widthA), int(widthB))
+    maxHeight = max(int(heightA), int(heightB))
+    
+    # construct our destination points which will be used to
+    # map the screen to a top-down, "birds eye" view
+    dst = np.array([
+	[0, 0],
+	[maxWidth - 1, 0],
+	[maxWidth - 1, maxHeight - 1],
+	[0, maxHeight - 1]], dtype = "float32")
+    
+    # calculate the perspective transform matrix and warp
+    # the perspective to grab the screen
+    M = cv2.getPerspectiveTransform(rect, dst)
+
+    return (maxWidth, maxHeight, dst, M)
+
+def do_warp(M, warp):
+    warp = cv2.warpPerspective(orig, M, (maxWidth, maxHeight))
+    # convert the warped image to grayscale and then adjust
+    # the intensity of the pixels to have minimum and maximum
+    # values of 0 and 255, respectively
+    warp = cv2.cvtColor(warp, cv2.COLOR_BGR2GRAY)
+    warp = exposure.rescale_intensity(warp, out_range = (0, 255))
+    
+    # the pokemon we want to identify will be in the top-right
+    # corner of the warped image -- let's crop this region out
+    (h, w) = warp.shape
+    (dX, dY) = (int(w * 0.4), int(h * 0.45))
+    crop = warp[10:dY, w - dX:w - 10]
+    
+    # save the cropped image to file
+    cv2.imwrite("cropped.png", crop)
+    
+    # show our images
+    cv2.imshow("image", image)
+    cv2.imshow("edge", edged)
+    cv2.imshow("warp", imutils.resize(warp, height = 300))
+    cv2.imshow("crop", imutils.resize(crop, height = 300))
+    cv2.waitKey(0)
+
+def classify_monitor_contour_set(contours):
+    '''Not a general purpose function : given the expectation of a set of strongly related contours for one monitor...'''
+    # First pass : compute the center of mass of every contour
+    classified = {}
+    for (i,c) in enumerate(contours):
+        classified[i] = {}
+        classified[i]['contour'] = c
+        moments = M = cv2.moments(c)
+        classified[i]['com'] = (int(M['m10']/M['m00']), int(M['m01']/M['m00']))
+        rect = contour_to_monitor_coords(c)
+        (maxWidth, maxHeight, dest, Mwarp) = compute_warp(rect)
+        classified[i]['rect'] = rect
+        classified[i]['maxWidth'] = maxWidth
+        classified[i]['maxHeight'] = maxHeight
+        classified[i]['dest'] = dest
+        classified[i]['Mwarp'] = Mwarp
+    # Second pass : establish if c-o-m of every contour is within the first contour
+    reference_contour = contours[0]
+    for (i,c) in enumerate(contours):
+        classified[i]['coherent'] = cv2.pointPolygonTest(reference_contour, classified[i]['com'], False)
+    # Final pass : report on the set
+    print('$'*80)
+    for (i,c) in enumerate(contours):
+        print('%d : c-o-m %s : coherent : %d mw %d mh %d' % (i,
+                                                             classified[i]['com'],
+                                                             classified[i]['coherent'],
+                                                             classified[i]['maxWidth'],
+                                                             classified[i]['maxHeight'],
+        ))
+    print('$'*80)
+    # From the contours coherent to the reference contour, build an average/best estimator
+    count = 0
+    rect = np.zeros((4, 2), dtype = "float32")            
+    for (i,c) in enumerate(contours):
+        if classified[i]['coherent'] == 1:
+            count += 1
+            for j in range(0,4):
+                rect[j] += classified[i]['rect'][j]
+    #pdb.set_trace()
+    for j in range(0,4):
+        # BUG to show Alison
+        # rect[j] = (rect[j]/1.0*count).astype('uint8')
+        rect[j] = (rect[j]/(1.0*count)).astype('uint32')
+    time.sleep(2.5)
+    return rect
+    
 # cv2.findContours tracks continuous points with same intensity, extracted from a binary image 
 #
 # First phase produces the basic canny edge detection (could substitut eother edge/feature detectors)
@@ -490,13 +647,27 @@ class SquareLocatorV3:
             s.append('Square %d : length = %d : area = %d' % (sq.ID, cv2.arcLength(sq.contour, True), sq.area))
         return '\n'.join(s)
 
-
 class SquaresOverlay:
     def __init__(self, img, squares):
-        vw = ImageViewer(img)
+        #w = ImageViewer(img)
         square_contours = [square.contour for square in squares]
-        cv2.drawContours( img, square_contours, -1, (0, 255, 0), 3 )
-        vw.windowShow()
+        best_contours = []
+        best_contour = classify_monitor_contour_set(square_contours)
+        best_contours.append(best_contour.astype('int32'))
+        print('Iterate over %d contours' % len(square_contours))
+        cycle = True
+        while (cycle):
+            for (i, c) in enumerate(square_contours):
+                src = img.copy()
+                cv2.drawContours( src, best_contours, -1, (0,0,255),3)
+                cv2.drawContours( src, square_contours, i, (0, 255, 0), 1 )
+                print('contour %d overlaid on basic image' % i)
+                cv2.imshow('view', src)
+                time.sleep(0.2)
+                k = cv2.waitKey(30) & 0xFF
+                if k == 27:
+                    cycle = False
+        cv2.destroyWindow('view')
 
 #####################################################################################################################
 # Contours and Sets of Contours : various problems in computer vision relevant to the project.
@@ -536,13 +707,11 @@ def binaryContoursNestingFilterHeuristic(img, cnts, *args, **kwargs):
     Concept  : Use the found contours, with binary drawn contours to extract hierarchy and hence filter on nesting.
     Critique : WIP
     '''
-    pdb.set_trace()
     # Set the image to black (0): 
     img[:,:] = (0,0,0)
     # Draw all of the contours on the image in white
     contours = [c.contour for c in cnts]
     cv2.drawContours( img, contours, -1, (255, 255, 255), 1 )
-    pdb.set_trace()
     iv = ImageViewer(img)
     iv.windowShow()
     # Now extract any channel
@@ -560,7 +729,6 @@ def binaryContoursNestingFilterHeuristic(img, cnts, *args, **kwargs):
     bin, contours, hierarchy = cv2.findContours(bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     iv = ImageViewer(bin)
     iv.windowShow()
-    pdb.set_trace()
     return cnts
 
 def maxLinearDimensionHeuristic(img, cnts, *args, **kwargs):
@@ -589,11 +757,10 @@ def filterContoursRemove(img, cnts, *args, **kwargs):
     f1 = maxAreaHeuristic(img, cnts)
     h = 'maxAreaHeuristic'
     print('Input %d : after %s reduced to %d' % (len(cnts), h, len(f1)))
-    f2 = anotherFineHeuristic(img, cnts)
-    h = 'anotherFineHeuristic'
-    print('Input %d : after %s reduced to %d' % (len(cnts), h, len(f2)))
-    return f2
-
+#    f2 = anotherFineHeuristic(img, cnts)
+#    h = 'anotherFineHeuristic'
+#    print('Input %d : after %s reduced to %d' % (len(cnts), h, len(f2)))
+    return f1
 
 # TODO : expand the create_capture by providing a sequence of images as source.
 
@@ -728,7 +895,12 @@ def hdsbProto():
     hdSolidBlock()
     hdSolidBlock('blueHDSolidBlock.jpg', [255,0,0])
     hdSolidBlock('greenHDSolidBlock.jpg', [0,255,0])
-
+    hdSolidBlock('redHDSolidBlock.jpg', [0,0,255])
+    hdSolidBlock('whiteHDSolidBlock.jpg', [255,255,255])
+    hdSolidBlock('blackHDSolidBlock.jpg', [0,0,0])
+    hdSolidBlock('cyanHDSolidBlock.jpg', [255,255,0])
+    hdSolidBlock('yellowHDSolidBlock.jpg', [0,255,255])
+    
 def ivsqlProto():
     '''Demonstrate use of the SquareLocator and ImageViewer classes.'''
     for fn in glob('./data/hi.jpg'):
@@ -782,11 +954,9 @@ def sfv3Proto(mode = None, imgPath = None):
     if not imgPath:
         imgPath = './data/2x2-red-1.jpg'
     img = cv2.imread(imgPath)
-    pdb.set_trace()
-    sfv3 = SquareFinderV3(img)
+    sfv3 = SquareFinderV3(img, cos_limit = 0.5)
     squares = sfv3.find(mode)
     SquaresOverlay(img, squares)
-    pdb.set_trace()
     log = IPlog()
     log.comment('SquareFinderV3 acting on %s finds %d squares' % (imgPath, len(squares)))
     log.comment(sfv3)
@@ -808,6 +978,8 @@ def usage():
                                : 1 => call gaussianBlur(); cannyThresholding()
                                : 2 => call gimpMarkup()
                                : 3 => call gaussianBlur(); colourMapping(); solidRedFilter(); [#cannyThresholding]
+                               : 4 => as 1, but with cv2.RETR_EXTERNAL as contour_retrieval_mode
+                               : 5 => as 1, but with cv2.RETR_TREE as contour_retrieval_mode, then filter only outermost contours
      --sfv3img|-i [image path]: run the SquareFinderV3 algorithm  : set the input image  < default mode 1>
     ''')
 
