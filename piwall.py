@@ -957,6 +957,14 @@ def sfv3Proto(mode = None, imgPath = None):
     sfv3 = SquareFinderV3(img, cos_limit = 0.5)
     squares = sfv3.find(mode)
     SquaresOverlay(img, squares)
+    # Heuristic when guided by MOG removal to find only contours close to the monitor to get average
+    best_contours = []
+    best_contour = classify_monitor_contour_set(square_contours)
+    best_contours.append(best_contour.astype('int32'))
+    # Best contour may be angled if the camera is not well lined up
+    # Find a transformation to map the image data to rectilinear/oriented normal to standard wall axes
+    
+
     log = IPlog()
     log.comment('SquareFinderV3 acting on %s finds %d squares' % (imgPath, len(squares)))
     log.comment(sfv3)
