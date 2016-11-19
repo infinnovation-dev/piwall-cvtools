@@ -115,6 +115,8 @@ class Color:
 RED = Color(0, 0, 255)
 BLUE = Color(255, 0, 0)
 GREEN = Color(0, 255, 0)
+BLACK = Color(0,0,0)
+WHITE = Color(255,255,255)
 
 
 ###
@@ -196,6 +198,7 @@ class Wall:
         self.tilesById = {}
         self.tilesByPixelOffset = {}
         self.img = None
+        self.img_bg = None
         self.reset()
 
     def resize(self, w):
@@ -203,7 +206,10 @@ class Wall:
         self.reset(w=w)
 
     def reset(self, w=0, h=0, force=False):
-        self.img = np.zeros((self.h, self.w, 3), np.uint8)
+        if self.img_bg == None:
+            self.img = np.zeros((self.h, self.w, 3), np.uint8)
+        else:
+            self.img = self.img_bg.copy()
 
     # Make picklable/unpicklable
     # Consider whether to implement __getstate__ and __setstate__
@@ -250,9 +256,16 @@ class Wall:
 
     # TODO: Decorator to add .tiles as .tilesByOrder()
 
-    def add_bg(self, img):
+    def add_bg(self, img_path):
         '''Add a background for the wall taken from a still image.   Image will need to be scaled to wall geometry.'''
-        pass
+        if os.path.exists(img_path):
+            _img = cv2.imread(img_path)
+            #r = self.w/_img.shape[1]
+            #dim = (self.w, int(_img.shape[0]*r))
+            self.img_bg = cv2.resize(_img, (self.w, self.h), interpolation = cv2.INTER_AREA)
+        else:
+            self.img_bg = None
+            print('Cannot find %s' % img_path)
 
     def render(self, w=0, h=0, bezelColor=RED, bezelThickness=3, pixelColor=BLUE, pixelThickness=3):
         self.reset(force=True)
@@ -450,8 +463,22 @@ class RegularWall:
     def __setstate__(self, state):
         self.__dict__.update(state)
 
+def idealised_models():
+    rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+    blackBackground = 'data/blackHDSolidBlock.jpg'
+    whiteBackground = 'data/whiteHDSolidBlock.jpg'
+    yellowBackground = 'data/yellowHDSolidBlock.jpg'
+    rw.wall.add_bg(yellowBackground)
+    rw.wall.render(pixelColor=BLACK, pixelThickness=-1)
+    cv2.imwrite('data/ideal_black.png', rw.wall.img)
+    vw = ImageViewer(rw.wall.img)
+    vw.windowShow()
+    rw.wall.render(pixelColor=WHITE, pixelThickness=-1)
+    cv2.imwrite('data/ideal_white.png', rw.wall.img)
+    vw = ImageViewer(rw.wall.img)
+    vw.windowShow()
+    
         
-
 def main():
     pdb.set_trace()
     rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
@@ -489,4 +516,5 @@ class ProjectionGUI(object):
 
 
 if __name__ == '__main__':
-    main()
+    #main()
+    idealised_models()

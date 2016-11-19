@@ -4,7 +4,10 @@ OpenCV inspired tools for working with video walls, especially piwall.co.uk.
 # prerequisites and installation
 opencv 3.1.0 (notes on Gdrive / follow the pyimagesearch process for building from git)
 matplotlib : on ubuntu apt-get install python-matplotlib
-common/ : TODO - this is missing
+common/ : TODO - this is resolved from
+/home/adam/pd/opencv/opencv-3.1.0/samples/python/
+in turn this is unpacked from opencv-3.1.0.zip (76M download from opencv.org)
+
 
 # Status 17/09/2016
 
