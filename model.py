@@ -38,7 +38,7 @@ import cv2
 import pdb
 import time
 
-sys.path.append('/home/adam/pd/opencv/opencv-3.1.0/samples/python/')
+sys.path.append(os.path.expanduser('~/pd/opencv/opencv-3.1.0/samples/python/'))
 from video import create_capture, Album
 from time import clock
 
