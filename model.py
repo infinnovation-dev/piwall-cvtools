@@ -55,6 +55,20 @@ from tilemap import tile_map, DebugStream
 ### Utility functions.
 ###
 
+def resize_to_width(img, width):
+    '''Scale image to width, preserving aspect ratio.'''
+    ratio = width*1.0/img.shape[1]
+    height = int(img.shape[0]*ratio)
+    dim = ( width, height )
+    return cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+
+def resize_to_height(img, height):
+    '''Scale image to width, preserving aspect ratio.'''
+    ratio = height*1.0/img.shape[0]
+    width = int(img.shape[1]*ratio)
+    dim = ( width, height )
+    return cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+
 ###
 ### Next Refactor Target : pull out common rectangular geometry in general.
 ###
@@ -463,7 +477,7 @@ class RegularWall:
     def __setstate__(self, state):
         self.__dict__.update(state)
 
-def idealised_models():
+def idealised_model_A():
     rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
     blackBackground = 'data/blackHDSolidBlock.jpg'
     whiteBackground = 'data/whiteHDSolidBlock.jpg'
@@ -477,7 +491,41 @@ def idealised_models():
     cv2.imwrite('data/ideal_white.png', rw.wall.img)
     vw = ImageViewer(rw.wall.img)
     vw.windowShow()
-    
+
+def idealised_model_A():
+    '''2x2 wall of HD with 100 pixel boundaries : full image is 4240x2560 - slow to process, awkward to view.'''
+    rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+    blackBackground = 'data/blackHDSolidBlock.jpg'
+    whiteBackground = 'data/whiteHDSolidBlock.jpg'
+    yellowBackground = 'data/yellowHDSolidBlock.jpg'
+    rw.wall.add_bg(yellowBackground)
+    rw.wall.render(pixelColor=BLACK, pixelThickness=-1)
+    cv2.imwrite('data/ideal_black.png', rw.wall.img)
+    vw = ImageViewer(rw.wall.img)
+    vw.windowShow()
+    rw.wall.render(pixelColor=WHITE, pixelThickness=-1)
+    cv2.imwrite('data/ideal_white.png', rw.wall.img)
+    vw = ImageViewer(rw.wall.img)
+    vw.windowShow()
+
+def idealised_model_B():
+    '''As idealised_model_A but scale the images down for rapid prototyping.'''
+    rw = RegularWall(1920, 1080, 2, 2, 100, 100, 150, 150)
+    blackBackground = 'data/blackHDSolidBlock.jpg'
+    whiteBackground = 'data/whiteHDSolidBlock.jpg'
+    yellowBackground = 'data/yellowHDSolidBlock.jpg'
+    rw.wall.add_bg(yellowBackground)
+    rw.wall.render(pixelColor=BLACK, pixelThickness=-1)
+    pdb.set_trace()
+    black = resize_to_width(rw.wall.img, 1024)
+    cv2.imwrite('data/ideal_black_w1024.png', black)
+    vw = ImageViewer(rw.wall.img)
+    vw.windowShow()
+    rw.wall.render(pixelColor=WHITE, pixelThickness=-1)
+    white = resize_to_width(rw.wall.img, 1024)
+    cv2.imwrite('data/ideal_white_w1024.png', white)
+    vw = ImageViewer(rw.wall.img)
+    vw.windowShow()
         
 def main():
     pdb.set_trace()
@@ -517,4 +565,5 @@ class ProjectionGUI(object):
 
 if __name__ == '__main__':
     #main()
-    idealised_models()
+    #idealised_models()
+    idealised_model_B()

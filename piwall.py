@@ -34,9 +34,14 @@ import warnings;
 with warnings.catch_warnings():
     warnings.simplefilter("ignore"); 
     from matplotlib import pyplot as plt
+
 import cv2
 import pdb
 import time
+
+from skimage.measure import structural_similarity as ssim
+from skimage.measure import compare_ssim
+
 
 sys.path.append(os.path.expanduser('~/pd/opencv/opencv-3.1.0/samples/python/'))
 from video import create_capture, Album
@@ -517,7 +522,93 @@ def classify_monitor_contour_set(contours):
         rect[j] = (rect[j]/(1.0*count)).astype('uint32')
     time.sleep(2.5)
     return rect
-    
+
+def classify_multi_monitors_contour_set(contours):
+    '''Not a general purpose function : given the expectation of a set of strongly related contours for one monitor...
+    Extension from classify_monitor_contour set where the contours span multiple sets of monitors.
+    '''
+    # First pass : compute the center of mass of every contour, also track the mean of the maxWidth/maxHeight
+    classified = {}
+    maxWidthTotal = 0
+    maxHeightTotal = 0
+    classifiedBins = []
+    for (i,c) in enumerate(contours):
+        classified[i] = {}
+        classified[i]['contour'] = c
+        moments = M = cv2.moments(c)
+        (x, y) = (int(M['m10']/M['m00']), int(M['m01']/M['m00']))
+        classified[i]['com'] = (x, y)
+        comDistanceFromOrigin = math.sqrt(x**2+y**2)
+        classified[i]['dfo'] = comDistanceFromOrigin
+        classifiedBins.append((i,comDistanceFromOrigin))
+        rect = contour_to_monitor_coords(c)
+        (maxWidth, maxHeight, dest, Mwarp) = compute_warp(rect)
+        maxWidthTotal += maxWidth
+        maxHeightTotal += maxHeight
+        classified[i]['rect'] = rect
+        classified[i]['maxWidth'] = maxWidth
+        classified[i]['maxHeight'] = maxHeight
+        classified[i]['dest'] = dest
+        classified[i]['Mwarp'] = Mwarp
+    # Intermediate: report on the set
+    print('$'*80)
+    for (i,c) in enumerate(contours):
+        if (i > 0) :
+            print('%d : c-o-m %s (delta %s) : mw %d mh %d' % (i,
+                                                              classified[i]['com'],
+                                                              (int(classified[i]['dfo']) - int(classified[i-1]['dfo'])),
+                                                              classified[i]['maxWidth'],
+                                                              classified[i]['maxHeight']
+            ))
+        else:
+            print('%d : c-o-m %s : mw %d mh %d' % (i,
+                                                   classified[i]['com'],
+                                                   classified[i]['maxWidth'],
+                                                   classified[i]['maxHeight']
+            ))
+    print('$'*80)
+    # Second pass : sort the classified contours into bins to distinguish groups that map to a given monitor
+    meanMaxWidth = int(maxWidthTotal*1.0/len(contours))
+    meanMaxHeight =  int(maxHeightTotal*1.0/len(contours))
+    binSeparation = 0.1*min(meanMaxWidth, meanMaxHeight)
+    def cbcmp(x,y):
+        if x[1] == y[1]:
+            return 0
+        else:
+            return int((x[1] - y[1]) / abs(x[1] - y[1]))
+    classifiedBins.sort(cbcmp)
+    print('sorted')
+    bins = []
+    bins.append(classifiedBins[0])
+    dist = classifiedBins[0][1]
+    bestContours = []
+    count = 0
+    rect = np.zeros((4,2), dtype = "float32")
+    for (index, distance) in classifiedBins[1:]:
+        if abs(distance - dist) > binSeparation:
+            bins.append((index,distance))
+            dist = distance
+            print('Found the next bin with distance %s' % dist)
+            for j in range(0,4):
+                rect[j] = (rect[j]/(1.0*count)).astype('uint32')
+            bestContours.append((rect, count))
+            count = 0
+            rect = np.zeros((4,2), dtype = "float32")
+        else:
+            count += 1
+            for j in range(0,4):
+                rect[j] += classified[index]['rect'][j]
+            print('Found another estimator in the same bin')
+    # Special case : handle the last set
+    bins.append((index,distance))
+    dist = distance
+    print('Found the next bin with distance %s' % dist)
+    for j in range(0,4):
+        rect[j] = (rect[j]/(1.0*count)).astype('uint32')
+    bestContours.append((rect, count))
+    print('Found %d bestContours as estimators of the borders of the monitors' % len(bestContours))
+    return bestContours
+
 # cv2.findContours tracks continuous points with same intensity, extracted from a binary image 
 #
 # First phase produces the basic canny edge detection (could substitut eother edge/feature detectors)
@@ -648,25 +739,72 @@ class SquareLocatorV3:
         return '\n'.join(s)
 
 class SquaresOverlay:
-    def __init__(self, img, squares):
+    def __init__(self, img, squares, all = True):
         #w = ImageViewer(img)
         square_contours = [square.contour for square in squares]
         best_contours = []
         best_contour = classify_monitor_contour_set(square_contours)
         best_contours.append(best_contour.astype('int32'))
         print('Iterate over %d contours' % len(square_contours))
-        cycle = True
-        while (cycle):
-            for (i, c) in enumerate(square_contours):
-                src = img.copy()
+        if all:
+            cycle = True
+            while (cycle):
+                for (i, c) in enumerate(square_contours):
+                    src = img.copy()
+                    cv2.drawContours( src, best_contours, -1, (0,0,255),3)
+                    cv2.drawContours( src, square_contours, i, (0, 255, 0), 1 )
+                    print('contour %d overlaid on basic image' % i)
+                    cv2.imshow('view', src)
+                    time.sleep(0.2)
+                    k = cv2.waitKey(30) & 0xFF
+                    if k == 27:
+                        cycle = False
+        else:
+            cycle = True
+            src = img.copy()
+            while (cycle):
                 cv2.drawContours( src, best_contours, -1, (0,0,255),3)
-                cv2.drawContours( src, square_contours, i, (0, 255, 0), 1 )
-                print('contour %d overlaid on basic image' % i)
                 cv2.imshow('view', src)
                 time.sleep(0.2)
                 k = cv2.waitKey(30) & 0xFF
                 if k == 27:
                     cycle = False
+
+        cv2.destroyWindow('view')
+
+class SquaresOverlayV4:
+    def __init__(self, img, squares, all = True):
+        #w = ImageViewer(img)
+        square_contours = [square.contour for square in squares]
+        pdb.set_trace()
+        best_contours_tuples = classify_multi_monitors_contour_set(square_contours)
+        best_contours = [contour.astype('int32') for (contour, index) in best_contours_tuples]
+        pdb.set_trace()
+        print('Iterate over %d contours' % len(square_contours))
+        if all:
+            cycle = True
+            while (cycle):
+                for (i, c) in enumerate(square_contours):
+                    src = img.copy()
+                    cv2.drawContours( src, square_contours, i, (0, 255, 0), 1 )
+                    cv2.drawContours( src, best_contours, -1, (0,0,255),3)
+                    print('contour %d overlaid on basic image' % i)
+                    cv2.imshow('view', src)
+                    time.sleep(0.2)
+                    k = cv2.waitKey(30) & 0xFF
+                    if k == 27:
+                        cycle = False
+        else:
+            cycle = True
+            src = img.copy()
+            while (cycle):
+                cv2.drawContours( src, best_contours, -1, (0,0,255),3)
+                cv2.imshow('view', src)
+                time.sleep(0.2)
+                k = cv2.waitKey(30) & 0xFF
+                if k == 27:
+                    cycle = False
+
         cv2.destroyWindow('view')
 
 #####################################################################################################################
@@ -945,6 +1083,16 @@ class IPlog:
         # How to do with IPlog.... and trigger close automatically ?
         self.fh.close()
 
+def denoise_foreground(img, fgmask):
+    img_bw = 255*(fgmask > 5).astype('uint8')
+    se1 = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
+    se2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2,2))
+    mask = cv2.morphologyEx(img_bw, cv2.MORPH_CLOSE, se1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, se2)
+    mask = np.dstack([mask, mask, mask]) / 255
+    img_dn = img * mask
+    return img_dn
+
 def sfv3Proto(mode = None, imgPath = None):
     '''
     Iterate through the deconstructed image processing options in SquareFinderV3 (sfv3).
@@ -963,13 +1111,65 @@ def sfv3Proto(mode = None, imgPath = None):
     best_contours.append(best_contour.astype('int32'))
     # Best contour may be angled if the camera is not well lined up
     # Find a transformation to map the image data to rectilinear/oriented normal to standard wall axes
-    
-
     log = IPlog()
     log.comment('SquareFinderV3 acting on %s finds %d squares' % (imgPath, len(squares)))
     log.comment(sfv3)
     log.close()
-    
+
+class PiwallImageSeries:
+    '''Process a series of images of piwalls in which transitions are engineered to highlight the tiles.'''
+    def __init__(self, globPattern, mode = 4, transition_threshold = 0.8):
+        self.globPattern = globPattern
+        self.mode = mode
+        self.transition_threshold = transition_threshold
+        self.frame_files = glob.glob(self.globPattern)
+        self.frame_files.sort()
+        self.frames = [cv2.imread(f) for f in self.frame_files]
+        self.transitions = []
+
+    def subtract_background(self):
+        pdb.set_trace()
+        fgbg = cv2.createBackgroundSubtractorMOG2()
+        prev = self.frames[0]
+        fgmask = fgbg.apply(prev)
+        for (i,next) in enumerate(self.frames[1:]):
+            prev_gray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
+            next_gray = cv2.cvtColor(next, cv2.COLOR_BGR2GRAY)
+            similarity_metric = compare_ssim(prev_gray, next_gray)
+            print('prev/next similarity measure = %f' % similarity_metric)
+            if similarity_metric < self.transition_threshold:
+                pdb.set_trace()
+                fgmask = fgbg.apply(next)
+                fgdn = denoise_foreground(next, fgmask)
+                self.transitions.append((1, fgdn))
+            else:
+                fgmask = fgbg.apply(next)
+                self.transitions.append((0, None))
+            prev = next.copy()
+
+    def locate(self, all = False):
+        for (transition, mask) in self.transitions:
+            if transition == 1:
+                sfv3 = SquareFinderV3(mask, cos_limit = 0.5)
+                squares = sfv3.find(self.mode)
+                SquaresOverlayV4(mask, squares, all = all)
+                SquaresOverlayV4(mask, squares, all = False)
+
+    def __repr__(self):
+        s = []
+        s.append('%d frames considered' % len(self.frames))
+        ntrans = 0
+        for (t,m) in self.transitions:
+            if t == 1:
+                 ntrans += 1
+        s.append('%d transitions identified' % ntrans)
+        return '\n'.join(s)
+
+def sfv4Proto(globPattern, mode = None):
+    pwis = PiwallImageSeries(globPattern, mode = mode)
+    pwis.subtract_background()
+    pwis.locate(all = True)
+                            
 #####################################################################################################################
 # GetOpts Front End
 #####################################################################################################################
@@ -988,17 +1188,20 @@ def usage():
                                : 3 => call gaussianBlur(); colourMapping(); solidRedFilter(); [#cannyThresholding]
                                : 4 => as 1, but with cv2.RETR_EXTERNAL as contour_retrieval_mode
                                : 5 => as 1, but with cv2.RETR_TREE as contour_retrieval_mode, then filter only outermost contours
+                               : 6 => new model which takes a series of images which have transitions that identify the monitors.
      --sfv3img|-i [image path]: run the SquareFinderV3 algorithm  : set the input image  < default mode 1>
+     --sfv4glob|-g [image glob pattern] : set the series of input images to be pattern-[%03d].jpg
     ''')
 
 def main():
     vssopt = None
     sfv3mode = None
     sfv3img = None
+    sfv4glob = None
     
     options, remainder = getopt.gnu_getopt(sys.argv[1:],
-                                       'i:s:v:h',
-                                       ['help', 'sfv3img=', 'sfv3mode=', 'vssdemo='])
+                                       'i:s:g:v:h',
+                                       ['help', 'sfv3img=', 'sfv3mode=', 'vssdemo=', 'sfv4glob='])
     for opt, arg in options:
         if opt in ('-h', '--help'):
             usage()
@@ -1008,6 +1211,8 @@ def main():
             sfv3mode = int(arg)
         elif opt in ('-i', '--sfv3img'):
             sfv3img = arg
+        elif opt in ('-g', '--sfv4glob'):
+            sfv4glob = arg
         elif opt in ('-h', '--help'):
             usage()
             sys.exit(0)
@@ -1027,10 +1232,12 @@ def main():
     else:
         print("Skipping VSS demo.")
 
-    # Hook to run sfv3
-    if sfv3mode or sfv3img:
-        print('Running SFV3 : %d %s' % (sfv3mode, sfv3img))
+    # Hook to run sfv3 or sfv4
+    if sfv3img:
+        print('Running SFV3 : %d %s %s' % (sfv3mode, sfv3img, sfv3glob))
         sfv3Proto(sfv3mode, sfv3img)
+    elif sfv4glob:
+        sfv4Proto(sfv4glob, sfv3mode)
     else:
         print("Skipping sfv3 demo.")
 
