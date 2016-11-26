@@ -50,6 +50,12 @@ from time import clock
 # Record the results of processing the video using vwriter
 from vwriter import VideoWriter
 
+# Helper classes
+from utils import FilenameSequence, ImageViewer
+
+# Convert located wall coordinates into model space
+from model import Wall, Tile
+
 #####################################################################################################################
 # Utility Functions
 #####################################################################################################################
@@ -631,77 +637,6 @@ class ColorMapper:
         cv2.rectangle(self.img, (cX-30, cY-30), (cY+30, cY+30),(0,255,0), 2)
 
 
-#####################################################################################################################
-# Helper Classes.
-#####################################################################################################################
-
-# TODO: rewrite in true iterator idiom style.
-class FilenameSequence:
-    def __init__(self, prefix, suffix):
-        self.prefix = prefix
-        self.suffix = suffix
-        self.id = count(0)
-    
-    def next(self, tag = None):
-        if tag:
-            return '%s-%s_%04d.%s' % (self.prefix, tag, self.id.next(), self.suffix)
-        else:
-            return '%s_%04d.%s' % (self.prefix, self.id.next(), self.suffix)
-
-class ImageViewer:
-    '''Very simple wrapper to display images and add key options to show information.'''
-    def __init__(self, img = './data/hi.jpg'):
-        if type(img) == type(''):
-            if os.path.exists(img):
-                self.path = img
-                self.img = cv2.imread(self.path)
-            else:
-                print("No such image found at %s" % img)
-                return
-        else:
-            self.path = "No path - image supplied directly"
-            self.img = img
-        shape = self.img.shape
-        h = shape[0]
-        w = shape[1]
-        self.aspectRatio = float(w)/float(h)
-
-    def show(self, waitKey = 'n', window = 'Pi Wall', destroy = True, info = False, w = 500, thumbnailfn = None):
-        '''
-        thumbnailfn : filename into which to save a resized copy
-        '''
-        print('Display %s.\n\tPress %s to exit viewer' % (self.path, waitKey))
-        cv2.namedWindow(window, cv2.WINDOW_NORMAL)
-        cv2.imshow(window, self.img)
-        h = int(w/self.aspectRatio)
-        cv2.resizeWindow(window, w, h)
-        if thumbnailfn:
-            thumb = self.img.copy()
-            # Or cv2.copyMakeBorder(img, 0,0,0,0,cv2.BORDER_REPLICATE)
-            thumb = cv2.resize(thumb, (w,h))
-            cv2.imwrite(thumbnailfn, thumb)
-        if info: self.imageInfo()
-        if destroy:
-            run = True
-            while run:
-                ch = 0xff & cv2.waitKey()
-                if ch == ord('%s' % waitKey):
-                    print('%s pressed. exiting' % waitKey)
-                    run = False
-                elif ch == ord('i'):
-                    self.imageInfo()
-                else:
-                    print('invalid command %s' % chr(ch))
-            cv2.destroyWindow(window)
-
-    def windowShow(self, waitKey = 'n'):
-        cv2.namedWindow('wall', cv2.WINDOW_NORMAL)
-        self.show(waitKey, 'wall')
-    
-    def imageInfo(self):
-        print('image.size is %d' % self.img.size)
-        print('image.shape is {0}'.format(self.img.shape))
-        print('image.dtype is %s' % str(self.img.dtype))    
     
 class SquareLocator:
     def __init__(self, img, thumbnailDir = None):
@@ -776,11 +711,11 @@ class SquaresOverlayV4:
     def __init__(self, img, squares, all = True):
         #w = ImageViewer(img)
         square_contours = [square.contour for square in squares]
-        pdb.set_trace()
+        #pdb.set_trace()
         best_contours_tuples = classify_multi_monitors_contour_set(square_contours)
         best_contours = [contour.astype('int32') for (contour, index) in best_contours_tuples]
-        pdb.set_trace()
-        print('Iterate over %d contours' % len(square_contours))
+        #pdb.set_trace()
+        #print('Iterate over %d contours' % len(square_contours))
         if all:
             cycle = True
             while (cycle):
@@ -1128,7 +1063,6 @@ class PiwallImageSeries:
         self.transitions = []
 
     def subtract_background(self):
-        pdb.set_trace()
         fgbg = cv2.createBackgroundSubtractorMOG2()
         prev = self.frames[0]
         fgmask = fgbg.apply(prev)
@@ -1138,7 +1072,6 @@ class PiwallImageSeries:
             similarity_metric = compare_ssim(prev_gray, next_gray)
             print('prev/next similarity measure = %f' % similarity_metric)
             if similarity_metric < self.transition_threshold:
-                pdb.set_trace()
                 fgmask = fgbg.apply(next)
                 fgdn = denoise_foreground(next, fgmask)
                 self.transitions.append((1, fgdn))
@@ -1147,13 +1080,35 @@ class PiwallImageSeries:
                 self.transitions.append((0, None))
             prev = next.copy()
 
-    def locate(self, all = False):
+    def locate(self, all = False, show = False, outimg = None):
         for (transition, mask) in self.transitions:
             if transition == 1:
                 sfv3 = SquareFinderV3(mask, cos_limit = 0.5)
                 squares = sfv3.find(self.mode)
-                SquaresOverlayV4(mask, squares, all = all)
-                SquaresOverlayV4(mask, squares, all = False)
+                if show:
+                    SquaresOverlayV4(mask, squares, all = all)
+                    SquaresOverlayV4(mask, squares, all = False)
+                else:
+                    square_contours = [square.contour for square in squares]
+                    best_contours_tuples = classify_multi_monitors_contour_set(square_contours)
+                    found = mask.copy()
+                    self.best_contours = [contour.astype('int32') for (contour, index) in best_contours_tuples]
+                    cv2.drawContours( found, self.best_contours, -1, (0,0,255),3)
+                    if outimg:
+                        cv2.imwrite(outimg, found)
+                return self.best_contours
+
+    def as_wall(self, filename):
+        (h, w, c) = self.frames[0].shape
+        self.wall = Wall(w, h)
+        for bc in self.best_contours:
+            tlx,tly = bc[0]
+            brx,bry = bc[2]
+            w = brx - tlx
+            h = bry - tly
+            self.wall.add_tile(Tile(w, h), tlx, tly)
+        if filename:
+            self.wall.save(filename)
 
     def __repr__(self):
         s = []
@@ -1165,10 +1120,12 @@ class PiwallImageSeries:
         s.append('%d transitions identified' % ntrans)
         return '\n'.join(s)
 
-def sfv4Proto(globPattern, mode = None):
+def sfv4Proto(globPattern, mode = None, outimg = None, wallfn = None):
     pwis = PiwallImageSeries(globPattern, mode = mode)
     pwis.subtract_background()
-    pwis.locate(all = True)
+    best_contours = pwis.locate(all = True, outimg = outimg)
+    pwis.as_wall('v4wall.pickle')
+    pdb.set_trace()
                             
 #####################################################################################################################
 # GetOpts Front End
@@ -1198,10 +1155,11 @@ def main():
     sfv3mode = None
     sfv3img = None
     sfv4glob = None
+    outimg = None
     
     options, remainder = getopt.gnu_getopt(sys.argv[1:],
-                                       'i:s:g:v:h',
-                                       ['help', 'sfv3img=', 'sfv3mode=', 'vssdemo=', 'sfv4glob='])
+                                       'i:o:s:g:v:h',
+                                       ['help', 'sfv3img=', 'sfv3mode=', 'vssdemo=', 'sfv4glob=', 'outimg='])
     for opt, arg in options:
         if opt in ('-h', '--help'):
             usage()
@@ -1211,6 +1169,8 @@ def main():
             sfv3mode = int(arg)
         elif opt in ('-i', '--sfv3img'):
             sfv3img = arg
+        elif opt in ('-o', '--outimg'):
+            outimg = arg
         elif opt in ('-g', '--sfv4glob'):
             sfv4glob = arg
         elif opt in ('-h', '--help'):
@@ -1237,7 +1197,7 @@ def main():
         print('Running SFV3 : %d %s %s' % (sfv3mode, sfv3img, sfv3glob))
         sfv3Proto(sfv3mode, sfv3img)
     elif sfv4glob:
-        sfv4Proto(sfv4glob, sfv3mode)
+        sfv4Proto(sfv4glob, sfv3mode, outimg)
     else:
         print("Skipping sfv3 demo.")
 

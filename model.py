@@ -44,12 +44,14 @@ from time import clock
 
 # Record the results of processing the video using vwriter
 from vwriter import VideoWriter
-from piwall import ImageViewer
+
+# Helper classes
+from utils import FilenameSequence, ImageViewer
+
 from frame import Frame
 
 sys.path.append('..')
 from tilemap import tile_map, DebugStream
-
 
 ###
 ### Utility functions.
@@ -235,6 +237,7 @@ class Wall:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        self.img = None
 
     def save(self, filename, overwrite=False):
         if not os.path.exists(filename) or  overwrite:
@@ -296,7 +299,13 @@ class Wall:
 
     def __repr__(self):
         s = []
-        s.append('Wall with w = %d, h = %d, shape is %s' % (self.w, self.h, self.img.shape))
+        if self.img:
+            img_shape = self.img_shape
+        else:
+            img_shape = 'no image yet'
+        s.append('Wall with w = %d, h = %d, shape is %s' % (self.w, self.h, img_shape))
+        for t in self.tilesByOrder:
+            s.append('\t%s' % t)
         return '\n'.join(s)
 
     #TODO: check draw/show functions and create a Tile.show() function
@@ -561,7 +570,6 @@ class ProjectionGUI(object):
         cv2.imshow(self.window_name, wall.img)
         cv2.createTrackbar("wall width", self.window_name, wall.w, 1000, wall.resize)
         cv2.waitKey()
-
 
 if __name__ == '__main__':
     #main()

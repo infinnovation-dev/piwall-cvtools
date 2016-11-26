@@ -254,10 +254,12 @@ def load_wall():
     load_wall_form.destroy()
 
 def _load_wall(save_file):
-    global wall
+    global wall, tiles
     print('Load wall from %s' % save_file)
     with open(save_file, 'r') as fh:
         wall = pickle.load(fh)
+    for t in wall.tilesByOrder:
+        tiles.append(t)
     print('reloaded wall from file')
     wall.draw(image)
     
@@ -291,7 +293,7 @@ def delete_clicked():
     tile_form.destroy()
 
 def main(wall_file = None):
-    global image
+    global image, draw_tile, clone
     image = np.zeros((600, 600, 3), dtype = "uint8")
     clone = image.copy()
 
@@ -330,6 +332,10 @@ def main(wall_file = None):
 
         elif key == ord("l"):
             load_wall_popup()
+
+        elif key == ord("w"):
+            print(wall)
+            print('gui tiles %d' % len(tiles))
 
             # if the 'c' key is pressed, break from the loop
         elif key == ord("c") or key == ord("q"):

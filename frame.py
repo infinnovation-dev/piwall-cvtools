@@ -6,7 +6,8 @@ Helper classes for manipulating single frames of video for a PiWall.
 import cv2
 import pdb
 
-from piwall import ImageViewer
+# Helper classes
+from utils import FilenameSequence, ImageViewer
 
 class Frame:
     '''Container for an openCV image in general.'''
@@ -26,7 +27,6 @@ class Frame:
         scaled = cv2.resize(self.img, dim, interpolation = cv2.INTER_AREA)
         self.scaled_images[(h,w)] = scaled
         return scaled
-    
     
 def overlay(self, original, target):
     '''Take original and overlay on target (assumed black). Cropping window size is taken from target.   Options to slide the cropping window within the image.'''
@@ -49,12 +49,6 @@ def overlay(self, original, target):
     # Now superimpose the roi on the target
     # Study the bitwise operations tutorial to get the nag of settig up masks and adding images.
     
-    
-    
-    
-        
-    
-
 def main():
     im = cv2.imread('data/jurassic-original.png')
     s1 = im.shape
